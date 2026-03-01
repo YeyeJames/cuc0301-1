@@ -152,8 +152,8 @@
         const [editingApt, setEditingApt] = useState(null);
         
         const [form, setForm] = useState({ 
-          patientName: '', time: '09:00', therapistId: '', treatmentId: '', 
-          notes: '', treatmentRoom: '二診' 
+          patientName: '', time: '09:00', date: '', therapistId: '', treatmentId: '', 
+          notes: '', treatmentRoom: '二診', isGroup: false, category: '心理'
         });
 
         const STATUS_CONFIG = {
@@ -210,7 +210,7 @@
           const groups = {};
           dayApts.forEach(apt => {
             const tr = treatments.find(t => t.id === apt.treatmentId);
-            const isGroup = tr?.isGroupTherapy;
+            const isGroup = apt.isGroup || tr?.isGroupTherapy;
             
             // 團體治療：依時間、治療師、項目、診間分組
             // 個別治療：每個預約獨立顯示
@@ -246,7 +246,7 @@
           const newApt = {
             ...form,
             id: editingApt ? editingApt.id : `apt_${Date.now()}_${Math.random()}`,
-            date: selectedDate,
+            date: form.date || selectedDate,
             status: editingApt ? editingApt.status : 'scheduled',
             patientPrice: tr?.patientPrice || 0,
             therapistFee: tr?.therapistFee || 0,
@@ -299,10 +299,13 @@
                   setForm({ 
                     patientName: '', 
                     time: '09:00', 
+                    date: selectedDate,
                     therapistId: '', 
                     treatmentId: '', 
                     notes: '', 
-                    treatmentRoom: '二診' 
+                    treatmentRoom: '二診',
+                    isGroup: false,
+                    category: '心理'
                   }); 
                   setIsAddOpen(true); 
                 }} icon={<Plus size={20}/>}>新增預約</Button>
@@ -343,20 +346,22 @@
                             </div>
                           </div>
                           
-                          {/* 團體治療才有的「加入個案」按鈕 */}
-                          {isGroup && user?.role !== 'therapist' && (
-                            <button onClick={() => {
-                              setEditingApt(null);
-                              setForm({ 
-                                patientName: '', 
-                                time: group.time, 
-                                therapistId: group.therapistId, 
-                                treatmentId: group.treatmentId, 
-                                notes: group.notes || '', 
-                                treatmentRoom: group.treatmentRoom 
-                              });
-                              setIsAddOpen(true);
-                            }} className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-brand-orange/10 text-brand-orange hover:bg-brand-orange hover:text-white transition-all text-[11px] font-black group">
+                              {isGroup && user?.role !== 'therapist' && (
+                                <button onClick={() => {
+                                  setEditingApt(null);
+                                  setForm({ 
+                                    patientName: '', 
+                                    time: group.time, 
+                                    date: selectedDate,
+                                    therapistId: group.therapistId, 
+                                    treatmentId: group.treatmentId, 
+                                    notes: group.notes || '', 
+                                    treatmentRoom: group.treatmentRoom,
+                                    isGroup: true,
+                                    category: treatments.find(t => t.id === group.treatmentId)?.category || '心理'
+                                  });
+                                  setIsAddOpen(true);
+                                }} className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-brand-orange/10 text-brand-orange hover:bg-brand-orange hover:text-white transition-all text-[11px] font-black group">
                               <UserPlus size={14} className="group-hover:scale-110 transition-transform" /> 加入個案
                             </button>
                           )}
@@ -385,7 +390,14 @@
                                   </div>
                                   <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
                                     {user?.role !== 'therapist' && (
-                                      <button onClick={() => { setEditingApt(a); setForm({...a}); setIsAddOpen(true); }} className="px-3 py-1.5 bg-white border border-stone-100 text-stone-400 hover:text-brand-orange hover:border-brand-orange rounded-xl text-[10px] font-black transition-all shadow-sm">修改預約</button>
+                                      <button onClick={() => { 
+                                        setEditingApt(a); 
+                                        setForm({
+                                          ...a,
+                                          category: treatments.find(t => t.id === a.treatmentId)?.category || '心理'
+                                        }); 
+                                        setIsAddOpen(true); 
+                                      }} className="px-3 py-1.5 bg-white border border-stone-100 text-stone-400 hover:text-brand-orange hover:border-brand-orange rounded-xl text-[10px] font-black transition-all shadow-sm">修改預約</button>
                                     )}
                                     {renderStatusActions(a)}
                                     {user?.role !== 'therapist' && (
@@ -418,7 +430,14 @@
                                   </div>
                                   <div className="flex items-center gap-2">
                                     {user?.role !== 'therapist' && (
-                                      <button onClick={() => { setEditingApt(a); setForm({...a}); setIsAddOpen(true); }} className="px-4 py-2 bg-white border border-stone-100 text-stone-400 hover:text-brand-orange hover:border-brand-orange rounded-xl text-xs font-black transition-all shadow-sm">修改預約</button>
+                                      <button onClick={() => { 
+                                        setEditingApt(a); 
+                                        setForm({
+                                          ...a,
+                                          category: treatments.find(t => t.id === a.treatmentId)?.category || '心理'
+                                        }); 
+                                        setIsAddOpen(true); 
+                                      }} className="px-4 py-2 bg-white border border-stone-100 text-stone-400 hover:text-brand-orange hover:border-brand-orange rounded-xl text-xs font-black transition-all shadow-sm">修改預約</button>
                                     )}
                                     {renderStatusActions(a)}
                                     {user?.role !== 'therapist' && (
@@ -452,7 +471,16 @@
                       </div>
                       <div className="flex-1 space-y-2 overflow-y-auto no-scrollbar">
                         {dayApts.map(a => (
-                          <div key={a.id} onClick={() => { if(user?.role !== 'therapist'){ setEditingApt(a); setForm({...a}); setIsAddOpen(true); } }} className={`p-2 rounded-xl bg-white/90 border border-stone-100 text-[10px] font-black ${user?.role !== 'therapist' ? 'cursor-pointer hover:border-brand-orange hover:shadow-md' : ''} transition-all shadow-sm flex flex-col gap-0.5`}>
+                          <div key={a.id} onClick={() => { 
+                            if(user?.role !== 'therapist'){ 
+                              setEditingApt(a); 
+                              setForm({
+                                ...a,
+                                category: treatments.find(t => t.id === a.treatmentId)?.category || '心理'
+                              }); 
+                              setIsAddOpen(true); 
+                            } 
+                          }} className={`p-2 rounded-xl bg-white/90 border border-stone-100 text-[10px] font-black ${user?.role !== 'therapist' ? 'cursor-pointer hover:border-brand-orange hover:shadow-md' : ''} transition-all shadow-sm flex flex-col gap-0.5`}>
                             <span className="text-brand-orange opacity-80">{a.time}</span>
                             <span className="text-stone-800 break-words leading-tight">{a.patientName}</span>
                           </div>
@@ -503,6 +531,11 @@
             {/* Add/Edit Modal */}
             <Modal isOpen={isAddOpen} onClose={() => setIsAddOpen(false)} title={editingApt ? "編輯排程" : "建立預約"}>
                <form onSubmit={handleSave} className="space-y-4">
+                  <div className="bg-stone-50 p-4 rounded-2xl border border-stone-100 space-y-3">
+                    <label className="block text-[10px] font-black text-stone-400 uppercase tracking-widest ml-2">預約日期</label>
+                    <input type="date" className="w-full h-12 px-5 rounded-xl border-2 border-transparent bg-white font-bold outline-none focus:border-brand-orange transition-all shadow-sm" value={form.date} onChange={e => setForm({...form, date: e.target.value})} required />
+                  </div>
+
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="block text-[10px] font-black text-stone-400 uppercase tracking-widest mb-1.5 ml-2">個案姓名</label>
@@ -521,6 +554,18 @@
                       ))}
                     </div>
                   </div>
+                  <div>
+                    <label className="block text-[10px] font-black text-stone-400 uppercase tracking-widest mb-1.5 ml-2">治療類型</label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {CATEGORIES.map(c => (
+                        <button key={c} type="button" onClick={() => setForm({...form, category: c, therapistId: '', treatmentId: ''})} className={`py-2 rounded-xl text-[11px] font-black transition-all ${form.category === c ? 'bg-brand-yellow text-stone-800 shadow-md' : 'bg-stone-50 text-stone-400 border border-stone-100'}`}>{c}</button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3 p-4 bg-stone-50 rounded-2xl border border-stone-100">
+                    <input type="checkbox" id="isGroup" checked={form.isGroup} onChange={e => setForm({...form, isGroup: e.target.checked})} className="w-5 h-5 accent-brand-orange" />
+                    <label htmlFor="isGroup" className="text-sm font-black text-stone-700 cursor-pointer">設定為「團體治療」</label>
+                  </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="block text-[10px] font-black text-stone-400 uppercase tracking-widest mb-1.5 ml-2">負責人員</label>
@@ -532,14 +577,14 @@
                         disabled={user?.role === 'therapist'}
                       >
                         <option value="">選擇人員</option>
-                        {therapists.map(t => <option key={t.id} value={t.id}>{t.name} ({t.category})</option>)}
+                        {therapists.filter(t => t.category === form.category).map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
                       </select>
                     </div>
                     <div>
                       <label className="block text-[10px] font-black text-stone-400 uppercase tracking-widest mb-1.5 ml-2">治療項目</label>
                       <select className="w-full h-12 px-4 rounded-2xl border-2 border-stone-50 bg-stone-50 font-bold outline-none" value={form.treatmentId} onChange={e => setForm({...form, treatmentId: e.target.value})} required disabled={!form.therapistId}>
                         <option value="">選擇項目</option>
-                        {treatments.filter(tr => therapists.find(t => t.id === form.therapistId)?.category === tr.category).map(tr => <option key={tr.id} value={tr.id}>{tr.name} (${tr.patientPrice})</option>)}
+                        {treatments.filter(tr => tr.category === form.category).map(tr => <option key={tr.id} value={tr.id}>{tr.name} (${tr.patientPrice})</option>)}
                       </select>
                     </div>
                   </div>
