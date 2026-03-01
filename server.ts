@@ -38,16 +38,22 @@ const defaultData = {
 };
 
 async function startServer() {
+  console.log("🚀 Starting Server...");
+  console.log(`📡 Port: ${PORT}`);
+  console.log(`🔗 MongoDB URI present: ${!!MONGODB_URI}`);
+  
   // Connect to MongoDB if URI is provided
+  console.log("🔍 Checking MongoDB connection...");
   if (MONGODB_URI) {
     try {
+      console.log("Attempting to connect to MongoDB Atlas...");
       await mongoose.connect(MONGODB_URI);
-      console.log("Connected to MongoDB Atlas");
+      console.log("✅ SUCCESS: Connected to MongoDB Atlas");
     } catch (err) {
-      console.error("MongoDB connection error:", err);
+      console.error("❌ ERROR: MongoDB connection error:", err);
     }
   } else {
-    console.warn("MONGODB_URI not provided. Data will not persist permanently.");
+    console.warn("⚠️ WARNING: MONGODB_URI not provided. Data will not persist permanently.");
   }
 
   const app = express();
