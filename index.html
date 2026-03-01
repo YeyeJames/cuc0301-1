@@ -738,7 +738,7 @@
                             <span className="text-[9px] font-black px-2 py-0.5 rounded-full uppercase bg-blue-50 text-blue-500">櫃檯</span>
                           </div>
                           <div className="flex justify-between items-center">
-                            <p className="text-xs text-stone-400 font-bold">帳號: {a.username}</p>
+                            <p className="text-xs text-stone-400 font-bold">帳號: {a.username} | 密碼: {a.password}</p>
                             <div className="flex gap-1">
                               <button onClick={() => handleEditA(a)} className="text-stone-400 hover:text-brand-orange transition-all p-2"><Edit3 size={16}/></button>
                               <button onClick={() => confirm(`確定移除 ${a.name} 的帳號？`) && onUpdateA(accounts.filter(x => x.id !== a.id))} className="text-stone-300 hover:text-red-500 transition-all p-2"><Trash2 size={16}/></button>
@@ -779,7 +779,7 @@
                           </div>
                           <div className="flex justify-between items-center">
                             <p className="text-xs text-stone-400 font-bold">
-                              {t.username ? `帳號: ${t.username}` : '請點擊編輯設定帳號密碼'}
+                              {t.username ? `帳號: ${t.username} | 密碼: ${t.password}` : '請點擊編輯設定帳號密碼'}
                             </p>
                             <div className="flex gap-1">
                               <button onClick={() => handleEditT(t)} className="text-stone-400 hover:text-brand-orange transition-all p-2">
@@ -1041,7 +1041,7 @@
                 </div>
                 <div>
                   <label className="block text-[10px] font-black text-stone-400 uppercase tracking-widest mb-2 ml-2">登入密碼</label>
-                  <input required type="password" className="w-full h-12 px-5 rounded-xl bg-stone-50 border-none font-black shadow-inner" placeholder="請輸入密碼" value={tForm.password} onChange={e => setTForm({...tForm, password: e.target.value})} />
+                  <input required type="text" className="w-full h-12 px-5 rounded-xl bg-stone-50 border-none font-black shadow-inner" placeholder="請輸入密碼" value={tForm.password} onChange={e => setTForm({...tForm, password: e.target.value})} />
                 </div>
                 <Button type="submit" className="w-full h-14 shadow-lg">{editingT ? "儲存修改" : "確認新增"}</Button>
               </form>
@@ -1059,7 +1059,7 @@
                 </div>
                 <div>
                   <label className="block text-[10px] font-black text-stone-400 uppercase tracking-widest mb-2 ml-2">登入密碼</label>
-                  <input required type="password" className="w-full h-12 px-5 rounded-xl bg-stone-50 border-none font-black shadow-inner" placeholder="請輸入密碼" value={aForm.password} onChange={e => setAForm({...aForm, password: e.target.value})} />
+                  <input required type="text" className="w-full h-12 px-5 rounded-xl bg-stone-50 border-none font-black shadow-inner" placeholder="請輸入密碼" value={aForm.password} onChange={e => setAForm({...aForm, password: e.target.value})} />
                 </div>
                 <Button type="submit" className="w-full h-14 shadow-lg">{editingA ? "儲存修改" : "確認新增"}</Button>
               </form>
