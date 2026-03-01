@@ -355,16 +355,16 @@
                                     date: selectedDate,
                                     therapistId: group.therapistId, 
                                     treatmentId: group.treatmentId, 
-                                    notes: group.notes || '', 
+                                    notes: '', 
                                     treatmentRoom: group.treatmentRoom,
                                     isGroup: true,
                                     category: treatments.find(t => t.id === group.treatmentId)?.category || '心理'
                                   });
                                   setIsAddOpen(true);
-                                }} className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-brand-orange/10 text-brand-orange hover:bg-brand-orange hover:text-white transition-all text-[11px] font-black group">
-                              <UserPlus size={14} className="group-hover:scale-110 transition-transform" /> 加入個案
-                            </button>
-                          )}
+                                }} className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-brand-orange text-white hover:bg-stone-900 transition-all text-[11px] font-black shadow-md hover:shadow-lg active:scale-95">
+                                  <UserPlus size={14} /> 新增個案
+                                </button>
+                              )}
                         </div>
 
                         {/* 個案顯示區 */}
