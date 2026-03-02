@@ -153,7 +153,7 @@
         
         const [form, setForm] = useState({ 
           patientName: '', time: '09:00', date: '', therapistId: '', treatmentId: '', 
-          notes: '', treatmentRoom: '二診', isGroup: false, category: '心理'
+          notes: '', treatmentRoom: '二診', category: '心理'
         });
 
         const STATUS_CONFIG = {
@@ -248,6 +248,7 @@
             id: editingApt ? editingApt.id : `apt_${Date.now()}_${Math.random()}`,
             date: form.date || selectedDate,
             status: editingApt ? editingApt.status : 'scheduled',
+            isGroup: tr?.isGroupTherapy || false,
             patientPrice: tr?.patientPrice || 0,
             therapistFee: tr?.therapistFee || 0,
             isPaid: editingApt ? editingApt.isPaid : false,
@@ -316,7 +317,6 @@
                     treatmentId: '', 
                     notes: '', 
                     treatmentRoom: '二診',
-                    isGroup: false,
                     category: '心理'
                   }); 
                   setIsAddOpen(true); 
@@ -499,7 +499,7 @@
                         ))}
                       </div>
                       {user?.role !== 'therapist' && (
-                        <button onClick={() => {setSelectedDate(ds); setEditingApt(null); setForm({ patientName: '', time: '09:00', date: ds, therapistId: '', treatmentId: '', notes: '', treatmentRoom: '二診', isGroup: false, category: '心理' }); setIsAddOpen(true);}} className="mt-3 w-full py-2 flex items-center justify-center text-stone-300 hover:text-brand-orange hover:bg-white rounded-xl transition-all border border-dashed border-stone-200 hover:border-brand-orange"><Plus size={18}/></button>
+                        <button onClick={() => {setSelectedDate(ds); setEditingApt(null); setForm({ patientName: '', time: '09:00', date: ds, therapistId: '', treatmentId: '', notes: '', treatmentRoom: '二診', category: '心理' }); setIsAddOpen(true);}} className="mt-3 w-full py-2 flex items-center justify-center text-stone-300 hover:text-brand-orange hover:bg-white rounded-xl transition-all border border-dashed border-stone-200 hover:border-brand-orange"><Plus size={18}/></button>
                       )}
                     </div>
                   );
@@ -576,10 +576,6 @@
                         <button key={c} type="button" onClick={() => setForm({...form, category: c, therapistId: '', treatmentId: ''})} className={`py-2 rounded-xl text-[11px] font-black transition-all ${form.category === c ? 'bg-brand-yellow text-stone-800 shadow-md' : 'bg-stone-50 text-stone-400 border border-stone-100'}`}>{c}</button>
                       ))}
                     </div>
-                  </div>
-                  <div className="flex items-center gap-3 p-4 bg-stone-50 rounded-2xl border border-stone-100">
-                    <input type="checkbox" id="isGroup" checked={form.isGroup} onChange={e => setForm({...form, isGroup: e.target.checked})} className="w-5 h-5 accent-brand-orange" />
-                    <label htmlFor="isGroup" className="text-sm font-black text-stone-700 cursor-pointer">設定為「團體治療」</label>
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
