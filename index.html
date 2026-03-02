@@ -1470,7 +1470,7 @@
       };
 
       const App = () => {
-        const [user, setUser] = useState(DataService.get(KEYS.SESSION, null));
+        const [user, setUser] = useState(null);
         const [view, setView] = useState('schedule');
         const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
         const [syncStatus, setSyncStatus] = useState('connecting'); // connecting, synced, error
