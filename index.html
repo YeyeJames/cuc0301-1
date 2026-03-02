@@ -1232,6 +1232,34 @@
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
+
+                <div className="mt-8 overflow-hidden rounded-2xl border border-stone-50">
+                  <table className="w-full text-left text-xs">
+                    <thead>
+                      <tr className="bg-stone-50 text-[10px] font-black text-stone-400 uppercase tracking-widest">
+                        <th className="py-3 pl-4">治療師</th>
+                        <th className="py-3 text-center">人次</th>
+                        <th className="py-3 text-right pr-4">薪資總計</th>
+                      </tr>
+                    </thead>
+                    <tbody className="font-bold text-stone-600">
+                      {stats.therapists.map(t => (
+                        <tr key={t.id} className="border-t border-stone-50">
+                          <td className="py-3 pl-4 text-stone-800">{t.name}</td>
+                          <td className="py-3 text-center text-stone-400">{t.count}</td>
+                          <td className="py-3 text-right pr-4 text-brand-orange">${t.salary.toLocaleString()}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                    <tfoot>
+                      <tr className="bg-stone-50/50 border-t-2 border-stone-100 font-black text-stone-800">
+                        <td className="py-3 pl-4">總計</td>
+                        <td className="py-3 text-center">{stats.therapists.reduce((sum, t) => sum + t.count, 0)}</td>
+                        <td className="py-3 text-right pr-4">${stats.totalExpense.toLocaleString()}</td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
               </div>
 
               <div className="bg-white p-8 rounded-[3rem] border border-stone-100 shadow-sm">
@@ -1258,6 +1286,34 @@
                       <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{fontSize: '12px', fontWeight: 700}} />
                     </PieChart>
                   </ResponsiveContainer>
+                </div>
+
+                <div className="mt-8 overflow-hidden rounded-2xl border border-stone-50">
+                  <table className="w-full text-left text-xs">
+                    <thead>
+                      <tr className="bg-stone-50 text-[10px] font-black text-stone-400 uppercase tracking-widest">
+                        <th className="py-3 pl-4">治療項目</th>
+                        <th className="py-3 text-center">人次</th>
+                        <th className="py-3 text-right pr-4">營收總計</th>
+                      </tr>
+                    </thead>
+                    <tbody className="font-bold text-stone-600">
+                      {stats.treatments.map((tr, idx) => (
+                        <tr key={idx} className="border-t border-stone-50">
+                          <td className="py-3 pl-4 text-stone-800">{tr.name}</td>
+                          <td className="py-3 text-center text-stone-400">{tr.count}</td>
+                          <td className="py-3 text-right pr-4 text-emerald-600">${tr.revenue.toLocaleString()}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                    <tfoot>
+                      <tr className="bg-stone-50/50 border-t-2 border-stone-100 font-black text-stone-800">
+                        <td className="py-3 pl-4">總計</td>
+                        <td className="py-3 text-center">{stats.treatments.reduce((sum, tr) => sum + tr.count, 0)}</td>
+                        <td className="py-3 text-right pr-4">${stats.totalRevenue.toLocaleString()}</td>
+                      </tr>
+                    </tfoot>
+                  </table>
                 </div>
               </div>
             </div>
