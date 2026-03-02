@@ -499,7 +499,7 @@
                         ))}
                       </div>
                       {user?.role !== 'therapist' && (
-                        <button onClick={() => {setSelectedDate(ds); setEditingApt(null); setForm({ patientName: '', time: '09:00', therapistId: '', treatmentId: '', notes: '', treatmentRoom: '二診' }); setIsAddOpen(true);}} className="mt-3 w-full py-2 flex items-center justify-center text-stone-300 hover:text-brand-orange hover:bg-white rounded-xl transition-all border border-dashed border-stone-200 hover:border-brand-orange"><Plus size={18}/></button>
+                        <button onClick={() => {setSelectedDate(ds); setEditingApt(null); setForm({ patientName: '', time: '09:00', date: ds, therapistId: '', treatmentId: '', notes: '', treatmentRoom: '二診', isGroup: false, category: '心理' }); setIsAddOpen(true);}} className="mt-3 w-full py-2 flex items-center justify-center text-stone-300 hover:text-brand-orange hover:bg-white rounded-xl transition-all border border-dashed border-stone-200 hover:border-brand-orange"><Plus size={18}/></button>
                       )}
                     </div>
                   );
