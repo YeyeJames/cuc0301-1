@@ -160,6 +160,7 @@
         const [selectedDate, setSelectedDate] = useState(format(new Date(), 'yyyy-MM-dd'));
         const [isAddOpen, setIsAddOpen] = useState(false);
         const [editingApt, setEditingApt] = useState(null);
+        const [hoveredAptId, setHoveredAptId] = useState(null);
         
         const [form, setForm] = useState({ 
           patientName: '', time: '09:00', date: '', therapistId: '', treatmentId: '', 
@@ -528,16 +529,26 @@
                 <div className="flex overflow-y-auto max-h-[600px] relative">
                   {/* Time Labels */}
                   <div className="w-16 shrink-0 border-r border-stone-100 bg-stone-50/30 flex flex-col">
-                    {Array.from({length: 14}, (_, i) => i + 8).map(hour => (
-                      <div key={hour} className="h-80 border-b border-stone-100 relative">
-                        <span className="absolute -top-2.5 right-2 text-[10px] font-black text-stone-400">{hour.toString().padStart(2, '0')}:00</span>
-                      </div>
-                    ))}
+                    {Array.from({length: 14}, (_, i) => i + 8).map(hour => {
+                      const isHovered = hoveredAptId && (() => {
+                        const apt = appointments.find(a => a.id === hoveredAptId);
+                        if (!apt) return false;
+                        const [h] = apt.time.split(':').map(Number);
+                        return h === hour;
+                      })();
+                      return (
+                        <div key={hour} className={`h-[320px] border-b border-stone-100 relative transition-colors ${isHovered ? 'bg-brand-orange/10' : ''}`}>
+                          <span className={`absolute -top-2.5 right-2 text-[10px] font-black transition-colors ${isHovered ? 'text-brand-orange scale-125' : 'text-stone-400'}`}>
+                            {hour.toString().padStart(2, '0')}:00
+                          </span>
+                        </div>
+                      );
+                    })}
                   </div>
                   {/* Room Columns */}
                   <div className="flex-1 grid relative" style={{ gridTemplateColumns: `repeat(${TREATMENT_ROOMS.length}, minmax(0, 1fr))`, height: '4480px' }}>
                     {/* Grid Lines */}
-                    <div className="absolute inset-0 grid grid-rows-[repeat(14,20rem)] pointer-events-none">
+                    <div className="absolute inset-0 grid pointer-events-none" style={{ gridTemplateRows: 'repeat(14, 320px)' }}>
                       {Array.from({length: 14}).map((_, i) => (
                         <div key={i} className="border-b border-stone-100/50"></div>
                       ))}
@@ -552,7 +563,7 @@
                             {Array.from({length: 14}, (_, i) => i + 8).map(hour => (
                               <div 
                                 key={hour} 
-                                className="h-80 border-b border-transparent hover:bg-brand-orange/5 cursor-pointer transition-colors group relative"
+                                className="h-[320px] border-b border-transparent hover:bg-brand-orange/5 cursor-pointer transition-colors group relative"
                                 onClick={() => {
                                   if (user?.role !== 'therapist') {
                                     setEditingApt(null);
@@ -581,7 +592,7 @@
 
                           {roomGroups.map(group => {
                             const [h, m] = group.time.split(':').map(Number);
-                            const top = ((h - 8) + m / 60) * 320; // 320px per hour (20rem = 320px)
+                            const top = ((h - 8) + m / 60) * 320; // 320px per hour
                             const treatment = treatments.find(t => t.id === group.treatmentId);
                             const therapist = therapists.find(t => t.id === group.therapistId);
                             const isGroup = group.isGroup;
@@ -589,7 +600,9 @@
                             return (
                               <div 
                                 key={group.id}
-                                className={`absolute left-1 right-1 p-2 rounded-xl border text-xs transition-all shadow-sm flex flex-col gap-1 overflow-hidden hover:z-20 hover:shadow-md bg-white z-10 ${isGroup ? 'border-brand-orange/40 ring-2 ring-brand-orange/10' : 'border-stone-200'}`}
+                                onMouseEnter={() => setHoveredAptId(group.id)}
+                                onMouseLeave={() => setHoveredAptId(null)}
+                                className={`absolute left-1 right-1 p-2 rounded-xl border text-xs transition-all shadow-sm flex flex-col gap-1 overflow-hidden hover:z-20 hover:shadow-md bg-white z-10 ${isGroup ? 'border-brand-orange/40 ring-2 ring-brand-orange/10' : 'border-stone-200'} ${hoveredAptId === group.id ? 'scale-[1.02] border-brand-orange ring-2 ring-brand-orange/20 shadow-lg' : ''}`}
                                 style={{ top: `${top}px`, minHeight: '100px' }}
                               >
                                 <div className="flex justify-between items-start">
@@ -865,16 +878,26 @@
                 <div className="flex overflow-y-auto max-h-[600px] relative">
                   {/* Time Labels */}
                   <div className="w-16 shrink-0 border-r border-stone-100 bg-stone-50/30 flex flex-col">
-                    {Array.from({length: 14}, (_, i) => i + 8).map(hour => (
-                      <div key={hour} className="h-64 border-b border-stone-100 relative">
-                        <span className="absolute -top-2.5 right-2 text-[10px] font-black text-stone-400">{hour.toString().padStart(2, '0')}:00</span>
-                      </div>
-                    ))}
+                    {Array.from({length: 14}, (_, i) => i + 8).map(hour => {
+                      const isHovered = hoveredAptId && (() => {
+                        const apt = appointments.find(a => a.id === hoveredAptId);
+                        if (!apt) return false;
+                        const [h] = apt.time.split(':').map(Number);
+                        return h === hour;
+                      })();
+                      return (
+                        <div key={hour} className={`h-[256px] border-b border-stone-100 relative transition-colors ${isHovered ? 'bg-brand-orange/10' : ''}`}>
+                          <span className={`absolute -top-2.5 right-2 text-[10px] font-black transition-colors ${isHovered ? 'text-brand-orange scale-125' : 'text-stone-400'}`}>
+                            {hour.toString().padStart(2, '0')}:00
+                          </span>
+                        </div>
+                      );
+                    })}
                   </div>
                   {/* Day Columns */}
                   <div className="flex-1 grid grid-cols-7 relative" style={{ height: '3584px' }}>
                     {/* Grid Lines */}
-                    <div className="absolute inset-0 grid grid-rows-[repeat(14,16rem)] pointer-events-none">
+                    <div className="absolute inset-0 grid pointer-events-none" style={{ gridTemplateRows: 'repeat(14, 256px)' }}>
                       {Array.from({length: 14}).map((_, i) => (
                         <div key={i} className="border-b border-stone-100/50"></div>
                       ))}
@@ -887,11 +910,13 @@
                         <div key={ds} className="border-r border-stone-100 last:border-none relative h-full">
                           {dayApts.map(a => {
                             const [h, m] = a.time.split(':').map(Number);
-                            const top = ((h - 8) + m / 60) * 256; // 256px per hour (16rem = 256px)
+                            const top = ((h - 8) + m / 60) * 256; // 256px per hour
                             const config = STATUS_CONFIG[a.status || 'scheduled'];
                             return (
                               <div 
                                 key={a.id} 
+                                onMouseEnter={() => setHoveredAptId(a.id)}
+                                onMouseLeave={() => setHoveredAptId(null)}
                                 onClick={() => { 
                                   if(user?.role !== 'therapist'){ 
                                     setEditingApt(a); 
@@ -902,7 +927,7 @@
                                     setIsAddOpen(true); 
                                   } 
                                 }}
-                                className={`absolute left-1 right-1 p-1.5 rounded-xl border text-[9px] font-black transition-all shadow-sm flex flex-col gap-0.5 overflow-hidden hover:z-10 hover:shadow-md ${config.bg} ${config.border} ${user?.role !== 'therapist' ? 'cursor-pointer hover:ring-2 hover:ring-brand-orange' : ''}`}
+                                className={`absolute left-1 right-1 p-1.5 rounded-xl border text-[9px] font-black transition-all shadow-sm flex flex-col gap-0.5 overflow-hidden hover:z-20 hover:shadow-md ${config.bg} ${config.border} ${user?.role !== 'therapist' ? 'cursor-pointer hover:ring-2 hover:ring-brand-orange' : ''} ${hoveredAptId === a.id ? 'scale-[1.05] z-30 shadow-lg ring-2 ring-brand-orange' : ''}`}
                                 style={{ top: `${top}px`, minHeight: '60px' }}
                                 title={`${a.time} - ${a.patientName}`}
                               >
