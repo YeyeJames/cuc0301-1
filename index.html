@@ -287,11 +287,9 @@
             const tr = treatments.find(t => t.id === apt.treatmentId);
             const isGroup = apt.isGroup || tr?.isGroupTherapy;
             
-            // 團體治療：依時間、治療師、項目、診間分組
-            // 個別治療：每個預約獨立顯示
-            const key = isGroup 
-              ? `${apt.time}_${apt.therapistId}_${apt.treatmentId}_${apt.treatmentRoom}`
-              : `indiv_${apt.id}`;
+            // 為了避免日表格介面重疊，依時間與診間分組
+            // 如果同一時段診間有兩筆(例如一筆報到一筆請假)，會合併在同一個卡片中呈現
+            const key = `${apt.time}_${apt.treatmentRoom}`;
 
             if (!groups[key]) {
               groups[key] = {
@@ -304,9 +302,26 @@
                 isGroup: isGroup,
                 patients: []
               };
+            } else {
+              // 若其中一筆是團體治療，則整組標記為團體
+              if (isGroup) groups[key].isGroup = true;
             }
             groups[key].patients.push(apt);
           });
+          
+          // 排序：將「請假」或「取消」的預約排在後面，已報到/預約中的排在前面
+          Object.values(groups).forEach(group => {
+            group.patients.sort((a, b) => {
+              const statusOrder = { 'completed': 0, 'scheduled': 1, 'leave': 2, 'cancelled': 3 };
+              return (statusOrder[a.status || 'scheduled'] || 1) - (statusOrder[b.status || 'scheduled'] || 1);
+            });
+            // 更新 group 的主項目資訊為排序後第一筆預約的資訊
+            if (group.patients.length > 0) {
+              group.treatmentId = group.patients[0].treatmentId;
+              group.therapistId = group.patients[0].therapistId;
+            }
+          });
+
           return Object.values(groups).sort((a, b) => a.time.localeCompare(b.time));
         }, [dayApts, treatments]);
 
@@ -620,12 +635,20 @@
                                 <div className="mt-1 space-y-1">
                                   {group.patients.map(p => {
                                     const config = STATUS_CONFIG[p.status || 'scheduled'];
+                                    const isSecondary = (p.status === 'leave' || p.status === 'cancelled') && group.patients.some(x => x.status !== 'leave' && x.status !== 'cancelled');
                                     return (
-                                      <div key={p.id} className={`flex flex-col gap-1 p-1.5 rounded border ${config.bg} ${config.border}`}>
+                                      <div key={p.id} className={`flex flex-col gap-1 p-1.5 rounded border transition-all ${config.bg} ${config.border} ${isSecondary ? 'opacity-40 grayscale scale-[0.98] origin-top' : ''}`}>
                                         <div className="flex items-center justify-between">
                                           <span className={`font-bold truncate ${config.text}`}>{p.patientName}</span>
                                           {renderSmallStatusActions(p)}
                                         </div>
+                                        {/* 如果項目或治療師與主項目不同，顯示額外資訊 */}
+                                        {group.patients.length > 1 && (p.treatmentId !== group.treatmentId || p.therapistId !== group.therapistId) && (
+                                          <div className="text-[8px] font-bold text-stone-400 flex flex-col gap-0.5 border-t border-stone-100 mt-1 pt-1">
+                                            {p.treatmentId !== group.treatmentId && <span className="truncate">{treatments.find(t => t.id === p.treatmentId)?.name}</span>}
+                                            {p.therapistId !== group.therapistId && <span className="truncate flex items-center gap-0.5"><UsersIcon size={8}/> {therapists.find(t => t.id === p.therapistId)?.name}</span>}
+                                          </div>
+                                        )}
                                         {user?.role !== 'therapist' && (
                                           <div className="flex items-center justify-end gap-1 mt-1">
                                             <button onClick={() => { 
@@ -768,8 +791,9 @@
                           <div className="space-y-3">
                             {group.patients.map(a => {
                               const config = STATUS_CONFIG[a.status || 'scheduled'];
+                              const isSecondary = (a.status === 'leave' || a.status === 'cancelled') && group.patients.some(x => x.status !== 'leave' && x.status !== 'cancelled');
                               return (
-                                <div key={a.id} className={`p-4 rounded-2xl border flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-all ${config.bg} ${config.border}`}>
+                                <div key={a.id} className={`p-4 rounded-2xl border flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-all ${config.bg} ${config.border} ${isSecondary ? 'opacity-40 grayscale scale-[0.98] origin-top' : ''}`}>
                                   <div className="flex items-center gap-3">
                                     <div className={`w-8 h-8 rounded-full flex items-center justify-center font-black text-xs bg-white ${config.text} shadow-sm cursor-pointer hover:ring-2 hover:ring-brand-orange transition-all`} onClick={() => setShowHistory(a.patientName)}>
                                       {a.patientName.charAt(0)}
@@ -808,8 +832,9 @@
                           <div className="space-y-2">
                             {group.patients.map(a => {
                               const config = STATUS_CONFIG[a.status || 'scheduled'];
+                              const isSecondary = (a.status === 'leave' || a.status === 'cancelled') && group.patients.some(x => x.status !== 'leave' && x.status !== 'cancelled');
                               return (
-                                <div key={a.id} className={`p-5 rounded-2xl border flex items-center justify-between transition-all ${config.bg} ${config.border}`}>
+                                <div key={a.id} className={`p-5 rounded-2xl border flex items-center justify-between transition-all ${config.bg} ${config.border} ${isSecondary ? 'opacity-40 grayscale scale-[0.98] origin-top' : ''}`}>
                                   <div className="flex items-center gap-4">
                                     <div className={`w-10 h-10 rounded-full flex items-center justify-center font-black bg-white ${config.text} shadow-sm cursor-pointer hover:ring-2 hover:ring-brand-orange transition-all`} onClick={() => setShowHistory(a.patientName)}>
                                       {a.patientName.charAt(0)}
