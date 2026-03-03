@@ -139,12 +139,19 @@
 
       // --- Main Views ---
       const ScheduleView = ({ user, appointments, therapists, treatments, onAdd, onUpdate, onDelete }) => {
+        const [filters, setFilters] = useState({ therapistId: '', category: '', status: '' });
+        const [showHistory, setShowHistory] = useState(null); // patientName
+
         const filteredAppointments = useMemo(() => {
+          let filtered = appointments;
           if (user?.role === 'therapist') {
-            return appointments.filter(a => a.therapistId === user.therapistId);
+            filtered = filtered.filter(a => a.therapistId === user.therapistId);
           }
-          return appointments;
-        }, [appointments, user]);
+          if (filters.therapistId) filtered = filtered.filter(a => a.therapistId === filters.therapistId);
+          if (filters.category) filtered = filtered.filter(a => a.category === filters.category);
+          if (filters.status) filtered = filtered.filter(a => a.status === filters.status);
+          return filtered;
+        }, [appointments, user, filters]);
 
         const [viewMode, setViewMode] = useState('day');
         const [selectedDate, setSelectedDate] = useState(format(new Date(), 'yyyy-MM-dd'));
@@ -156,12 +163,49 @@
           notes: '', treatmentRoom: '二診', category: '心理'
         });
 
+        const [showPatientSuggestions, setShowPatientSuggestions] = useState(false);
+        const patientNames = useMemo(() => [...new Set(appointments.map(a => a.patientName))].sort(), [appointments]);
+        const filteredPatientNames = useMemo(() => {
+          if (!form.patientName) return [];
+          return patientNames.filter(name => name.includes(form.patientName) && name !== form.patientName).slice(0, 5);
+        }, [patientNames, form.patientName]);
+
+        const handleSelectPatient = (name) => {
+          const lastApt = appointments
+            .filter(a => a.patientName === name)
+            .sort((a, b) => (b.date + b.time).localeCompare(a.date + a.time))[0];
+          
+          if (lastApt) {
+            setForm(prev => ({
+              ...prev,
+              patientName: name,
+              therapistId: lastApt.therapistId,
+              treatmentId: lastApt.treatmentId,
+              treatmentRoom: lastApt.treatmentRoom,
+              category: lastApt.category
+            }));
+          } else {
+            setForm(prev => ({ ...prev, patientName: name }));
+          }
+          setShowPatientSuggestions(false);
+        };
+
         const STATUS_CONFIG = {
           'scheduled': { label: '預約中', color: 'amber', bg: 'bg-amber-50', border: 'border-amber-100', text: 'text-amber-600', dot: 'bg-amber-400' },
           'completed': { label: '已報到', color: 'blue', bg: 'bg-blue-50', border: 'border-blue-100', text: 'text-blue-600', dot: 'bg-blue-500' },
           'cancelled': { label: '取消', color: 'stone', bg: 'bg-stone-50', border: 'border-stone-100', text: 'text-stone-500', dot: 'bg-stone-400' },
           'leave': { label: '請假', color: 'rose', bg: 'bg-rose-50', border: 'border-rose-100', text: 'text-rose-600', dot: 'bg-rose-500' }
         };
+
+        const todaySummary = useMemo(() => {
+          const today = format(new Date(), 'yyyy-MM-dd');
+          const todayApts = appointments.filter(a => a.date === today);
+          return {
+            total: todayApts.length,
+            pending: todayApts.filter(a => a.status === 'scheduled').length,
+            completed: todayApts.filter(a => a.status === 'completed').length
+          };
+        }, [appointments]);
 
         const renderStatusBadge = (status) => {
           const config = STATUS_CONFIG[status] || STATUS_CONFIG['scheduled'];
@@ -242,11 +286,34 @@
 
         const handleSave = (e) => {
           e.preventDefault();
+          
+          const aptDate = form.date || selectedDate;
+          const aptTime = form.time;
+          
+          // Conflict Detection
+          const conflict = appointments.find(a => 
+            a.id !== (editingApt?.id) &&
+            a.date === aptDate &&
+            a.time === aptTime &&
+            a.status !== 'cancelled' &&
+            (a.therapistId === form.therapistId || a.treatmentRoom === form.treatmentRoom)
+          );
+
+          if (conflict) {
+            const conflictType = conflict.therapistId === form.therapistId ? '治療師' : '治療室';
+            const conflictName = conflict.therapistId === form.therapistId 
+              ? therapists.find(t => t.id === conflict.therapistId)?.name 
+              : conflict.treatmentRoom;
+            
+            alert(`⚠️ 時段衝突！\n\n${conflictType}「${conflictName}」在 ${aptDate} ${aptTime} 已有預約。\n請更換時段、人員或診間。`);
+            return;
+          }
+
           const tr = treatments.find(x => x.id === form.treatmentId);
           const newApt = {
             ...form,
             id: editingApt ? editingApt.id : `apt_${Date.now()}_${Math.random()}`,
-            date: form.date || selectedDate,
+            date: aptDate,
             status: editingApt ? editingApt.status : 'scheduled',
             isGroup: tr?.isGroupTherapy || false,
             patientPrice: tr?.patientPrice || 0,
@@ -276,63 +343,141 @@
 
         return (
           <div className="space-y-6">
+            {/* Dashboard Widget */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="bg-white p-5 rounded-[2rem] border border-stone-100 shadow-sm flex items-center gap-4">
+                <div className="w-12 h-12 bg-brand-orange/10 text-brand-orange rounded-2xl flex items-center justify-center">
+                  <Calendar size={24} />
+                </div>
+                <div>
+                  <p className="text-[10px] font-black text-stone-400 uppercase tracking-widest">今日總診次</p>
+                  <p className="text-xl font-black text-stone-800">{todaySummary.total}</p>
+                </div>
+              </div>
+              <div className="bg-white p-5 rounded-[2rem] border border-stone-100 shadow-sm flex items-center gap-4">
+                <div className="w-12 h-12 bg-amber-50 text-amber-500 rounded-2xl flex items-center justify-center">
+                  <Coffee size={24} />
+                </div>
+                <div>
+                  <p className="text-[10px] font-black text-stone-400 uppercase tracking-widest">尚未報到</p>
+                  <p className="text-xl font-black text-stone-800">{todaySummary.pending}</p>
+                </div>
+              </div>
+              <div className="bg-white p-5 rounded-[2rem] border border-stone-100 shadow-sm flex items-center gap-4">
+                <div className="w-12 h-12 bg-blue-50 text-blue-500 rounded-2xl flex items-center justify-center">
+                  <CheckCircle size={24} />
+                </div>
+                <div>
+                  <p className="text-[10px] font-black text-stone-400 uppercase tracking-widest">已完成報到</p>
+                  <p className="text-xl font-black text-stone-800">{todaySummary.completed}</p>
+                </div>
+              </div>
+            </div>
+
             {/* Header Toolbar */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-5 rounded-[2.5rem] border border-stone-100 shadow-sm">
-              <div className="flex items-center gap-2">
-                <div className="flex bg-stone-100 p-1.5 rounded-2xl w-fit">
-                  {['day', 'week', 'month'].map(m => (
-                    <button key={m} onClick={() => setViewMode(m)} className={`px-5 py-2 rounded-xl text-xs font-black transition-all ${viewMode === m ? 'bg-white shadow-sm text-stone-800' : 'text-stone-400 hover:text-stone-500'}`}>
-                      {m === 'day' ? '日視圖' : m === 'week' ? '週曆' : '月曆'}
-                    </button>
-                  ))}
+            <div className="flex flex-col gap-4 bg-white p-5 rounded-[2.5rem] border border-stone-100 shadow-sm">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div className="flex items-center gap-2">
+                  <div className="flex bg-stone-100 p-1.5 rounded-2xl w-fit">
+                    {['day', 'week', 'month'].map(m => (
+                      <button key={m} onClick={() => setViewMode(m)} className={`px-5 py-2 rounded-xl text-xs font-black transition-all ${viewMode === m ? 'bg-white shadow-sm text-stone-800' : 'text-stone-400 hover:text-stone-500'}`}>
+                        {m === 'day' ? '日視圖' : m === 'week' ? '週曆' : '月曆'}
+                      </button>
+                    ))}
+                  </div>
+                  <button 
+                    onClick={() => {
+                      setSelectedDate(format(new Date(), 'yyyy-MM-dd'));
+                      setViewMode('day');
+                    }}
+                    className="px-5 py-3 bg-brand-orange/10 text-brand-orange hover:bg-brand-orange hover:text-white rounded-2xl text-xs font-black transition-all shadow-sm"
+                  >
+                    今天
+                  </button>
                 </div>
-                <button 
-                  onClick={() => {
-                    setSelectedDate(format(new Date(), 'yyyy-MM-dd'));
-                    setViewMode('day');
-                  }}
-                  className="px-5 py-3 bg-brand-orange/10 text-brand-orange hover:bg-brand-orange hover:text-white rounded-2xl text-xs font-black transition-all shadow-sm"
-                >
-                  今天
-                </button>
-              </div>
-              <div className="flex items-center gap-4">
-                <button onClick={() => {
-                  if (viewMode === 'month') {
-                    setSelectedDate(format(startOfMonth(addMonths(currentSelected, -1)), 'yyyy-MM-dd'));
-                  } else {
-                    setSelectedDate(format(addDays(currentSelected, viewMode === 'day' ? -1 : -7), 'yyyy-MM-dd'));
-                  }
-                }} className="p-2.5 hover:bg-stone-50 rounded-xl border border-stone-100"><ChevronLeft size={20}/></button>
-                <div className="text-center min-w-[140px] font-black relative cursor-pointer">
-                  <input type="date" className="absolute inset-0 opacity-0 z-10 cursor-pointer" value={selectedDate} onChange={e => setSelectedDate(e.target.value)} />
-                  <span className={`text-xl tracking-tight ${getDayTextClass(currentSelected)}`}>{format(currentSelected, 'MM/dd')}</span>
-                  <span className={`text-[10px] ml-2 tracking-widest font-black uppercase`}>{format(currentSelected, 'EEE')}</span>
+                <div className="flex items-center gap-4">
+                  <button onClick={() => {
+                    if (viewMode === 'month') {
+                      setSelectedDate(format(startOfMonth(addMonths(currentSelected, -1)), 'yyyy-MM-dd'));
+                    } else {
+                      setSelectedDate(format(addDays(currentSelected, viewMode === 'day' ? -1 : -7), 'yyyy-MM-dd'));
+                    }
+                  }} className="p-2.5 hover:bg-stone-50 rounded-xl border border-stone-100"><ChevronLeft size={20}/></button>
+                  <div className="text-center min-w-[140px] font-black relative cursor-pointer">
+                    <input type="date" className="absolute inset-0 opacity-0 z-10 cursor-pointer" value={selectedDate} onChange={e => setSelectedDate(e.target.value)} />
+                    <span className={`text-xl tracking-tight ${getDayTextClass(currentSelected)}`}>{format(currentSelected, 'MM/dd')}</span>
+                    <span className={`text-[10px] ml-2 tracking-widest font-black uppercase`}>{format(currentSelected, 'EEE')}</span>
+                  </div>
+                  <button onClick={() => {
+                    if (viewMode === 'month') {
+                      setSelectedDate(format(startOfMonth(addMonths(currentSelected, 1)), 'yyyy-MM-dd'));
+                    } else {
+                      setSelectedDate(format(addDays(currentSelected, viewMode === 'day' ? 1 : 7), 'yyyy-MM-dd'));
+                    }
+                  }} className="p-2.5 hover:bg-stone-50 rounded-xl border border-stone-100"><ChevronRight size={20}/></button>
                 </div>
-                <button onClick={() => {
-                  if (viewMode === 'month') {
-                    setSelectedDate(format(startOfMonth(addMonths(currentSelected, 1)), 'yyyy-MM-dd'));
-                  } else {
-                    setSelectedDate(format(addDays(currentSelected, viewMode === 'day' ? 1 : 7), 'yyyy-MM-dd'));
-                  }
-                }} className="p-2.5 hover:bg-stone-50 rounded-xl border border-stone-100"><ChevronRight size={20}/></button>
+                {user?.role !== 'therapist' && (
+                  <Button onClick={() => { 
+                    setEditingApt(null); 
+                    setForm({ 
+                      patientName: '', 
+                      time: '09:00', 
+                      date: selectedDate,
+                      therapistId: '', 
+                      treatmentId: '', 
+                      notes: '', 
+                      treatmentRoom: '二診',
+                      category: '心理'
+                    }); 
+                    setIsAddOpen(true); 
+                  }} icon={<Plus size={20}/>}>新增預約</Button>
+                )}
               </div>
-              {user?.role !== 'therapist' && (
-                <Button onClick={() => { 
-                  setEditingApt(null); 
-                  setForm({ 
-                    patientName: '', 
-                    time: '09:00', 
-                    date: selectedDate,
-                    therapistId: '', 
-                    treatmentId: '', 
-                    notes: '', 
-                    treatmentRoom: '二診',
-                    category: '心理'
-                  }); 
-                  setIsAddOpen(true); 
-                }} icon={<Plus size={20}/>}>新增預約</Button>
-              )}
+
+              {/* Multi-dimensional Filters */}
+              <div className="flex flex-wrap items-center gap-3 pt-4 border-t border-stone-50">
+                <div className="flex items-center gap-2">
+                  <UsersIcon size={14} className="text-stone-400" />
+                  <select 
+                    className="bg-stone-50 text-[11px] font-black text-stone-600 px-3 py-1.5 rounded-xl outline-none border border-stone-100"
+                    value={filters.therapistId}
+                    onChange={e => setFilters({...filters, therapistId: e.target.value})}
+                  >
+                    <option value="">所有治療師</option>
+                    {therapists.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                  </select>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Brain size={14} className="text-stone-400" />
+                  <select 
+                    className="bg-stone-50 text-[11px] font-black text-stone-600 px-3 py-1.5 rounded-xl outline-none border border-stone-100"
+                    value={filters.category}
+                    onChange={e => setFilters({...filters, category: e.target.value})}
+                  >
+                    <option value="">所有類別</option>
+                    {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Activity size={14} className="text-stone-400" />
+                  <select 
+                    className="bg-stone-50 text-[11px] font-black text-stone-600 px-3 py-1.5 rounded-xl outline-none border border-stone-100"
+                    value={filters.status}
+                    onChange={e => setFilters({...filters, status: e.target.value})}
+                  >
+                    <option value="">所有狀態</option>
+                    {Object.entries(STATUS_CONFIG).map(([key, val]) => <option key={key} value={key}>{val.label}</option>)}
+                  </select>
+                </div>
+                {(filters.therapistId || filters.category || filters.status) && (
+                  <button 
+                    onClick={() => setFilters({ therapistId: '', category: '', status: '' })}
+                    className="text-[10px] font-black text-brand-orange hover:underline ml-auto"
+                  >
+                    清除篩選
+                  </button>
+                )}
+              </div>
             </div>
 
             {/* Content Logic */}
@@ -399,11 +544,11 @@
                               return (
                                 <div key={a.id} className={`p-4 rounded-2xl border flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-all ${config.bg} ${config.border}`}>
                                   <div className="flex items-center gap-3">
-                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center font-black text-xs bg-white ${config.text} shadow-sm`}>
+                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center font-black text-xs bg-white ${config.text} shadow-sm cursor-pointer hover:ring-2 hover:ring-brand-orange transition-all`} onClick={() => setShowHistory(a.patientName)}>
                                       {a.patientName.charAt(0)}
                                     </div>
                                     <div>
-                                      <p className="font-black text-stone-800">{a.patientName}</p>
+                                      <p className="font-black text-stone-800 cursor-pointer hover:text-brand-orange transition-all" onClick={() => setShowHistory(a.patientName)}>{a.patientName}</p>
                                       <div className="flex items-center gap-2">
                                         {renderStatusBadge(a.status || 'scheduled')}
                                         <span className="text-xs font-black text-brand-orange bg-brand-orange/5 px-2 py-1 rounded-lg">應收 ${a.patientPrice || 0}</span>
@@ -439,11 +584,11 @@
                               return (
                                 <div key={a.id} className={`p-5 rounded-2xl border flex items-center justify-between transition-all ${config.bg} ${config.border}`}>
                                   <div className="flex items-center gap-4">
-                                    <div className={`w-10 h-10 rounded-full flex items-center justify-center font-black bg-white ${config.text} shadow-sm`}>
+                                    <div className={`w-10 h-10 rounded-full flex items-center justify-center font-black bg-white ${config.text} shadow-sm cursor-pointer hover:ring-2 hover:ring-brand-orange transition-all`} onClick={() => setShowHistory(a.patientName)}>
                                       {a.patientName.charAt(0)}
                                     </div>
                                     <div>
-                                      <p className="font-black text-lg text-stone-800">{a.patientName}</p>
+                                      <p className="font-black text-lg text-stone-800 cursor-pointer hover:text-brand-orange transition-all" onClick={() => setShowHistory(a.patientName)}>{a.patientName}</p>
                                       <div className="flex items-center gap-2">
                                         {renderStatusBadge(a.status || 'scheduled')}
                                         <span className="text-xs font-black text-brand-orange bg-brand-orange/5 px-2 py-1 rounded-lg">應收 ${a.patientPrice || 0}</span>
@@ -585,7 +730,9 @@
                       </select>
                     </div>
                     <div>
-                      <label className="block text-[10px] font-black text-stone-400 uppercase tracking-widest mb-1.5 ml-2">治療項目</label>
+                      <label className="block text-[10px] font-black text-stone-400 uppercase tracking-widest mb-1.5 ml-2">
+                        治療項目 {form.treatmentId && <span className="text-brand-orange ml-1">(${treatments.find(t => t.id === form.treatmentId)?.patientPrice})</span>}
+                      </label>
                       <select className="w-full h-12 px-4 rounded-2xl border-2 border-stone-50 bg-stone-50 font-bold outline-none" value={form.treatmentId} onChange={e => setForm({...form, treatmentId: e.target.value})} required disabled={!form.therapistId}>
                         <option value="">選擇項目</option>
                         {treatments.filter(tr => tr.category === form.category).map(tr => <option key={tr.id} value={tr.id}>{tr.name} (${tr.patientPrice})</option>)}
@@ -594,13 +741,48 @@
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
-                    <div>
+                    <div className="relative">
                       <label className="block text-[10px] font-black text-stone-400 uppercase tracking-widest mb-1.5 ml-2">個案姓名</label>
-                      <input className="w-full h-12 px-5 rounded-2xl border-2 border-stone-50 bg-stone-50 font-bold outline-none focus:border-brand-orange transition-all shadow-inner" value={form.patientName} onChange={e => setForm({...form, patientName: e.target.value})} required autoFocus />
+                      <input 
+                        className="w-full h-12 px-5 rounded-2xl border-2 border-stone-50 bg-stone-50 font-bold outline-none focus:border-brand-orange transition-all shadow-inner" 
+                        value={form.patientName} 
+                        onChange={e => {
+                          setForm({...form, patientName: e.target.value});
+                          setShowPatientSuggestions(true);
+                        }} 
+                        onFocus={() => setShowPatientSuggestions(true)}
+                        required 
+                        autoFocus 
+                      />
+                      {showPatientSuggestions && filteredPatientNames.length > 0 && (
+                        <div className="absolute z-20 top-full left-0 right-0 mt-1 bg-white border border-stone-100 rounded-xl shadow-xl overflow-hidden">
+                          {filteredPatientNames.map(name => (
+                            <div 
+                              key={name} 
+                              className="px-4 py-2 text-xs font-bold text-stone-600 hover:bg-stone-50 cursor-pointer border-b border-stone-50 last:border-none"
+                              onClick={() => handleSelectPatient(name)}
+                            >
+                              {name}
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                     <div>
                       <label className="block text-[10px] font-black text-stone-400 uppercase tracking-widest mb-1.5 ml-2">預約時間</label>
                       <input type="time" className="w-full h-12 px-5 rounded-2xl border-2 border-stone-50 bg-stone-50 font-bold outline-none focus:border-brand-orange transition-all shadow-inner" value={form.time} onChange={e => setForm({...form, time: e.target.value})} required />
+                      <div className="flex flex-wrap gap-1 mt-2">
+                        {['09:00', '10:00', '11:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00'].map(t => (
+                          <button 
+                            key={t} 
+                            type="button" 
+                            onClick={() => setForm({...form, time: t})}
+                            className="px-2 py-1 bg-stone-100 hover:bg-brand-orange hover:text-white rounded-lg text-[9px] font-black text-stone-400 transition-all"
+                          >
+                            {t}
+                          </button>
+                        ))}
+                      </div>
                     </div>
                   </div>
                   <div>
@@ -615,8 +797,40 @@
                     <label className="block text-[10px] font-black text-stone-400 uppercase tracking-widest mb-1.5 ml-2">預約備註</label>
                     <textarea className="w-full h-24 px-5 py-3 rounded-2xl border-2 border-stone-50 bg-stone-50 font-bold outline-none focus:border-brand-orange transition-all resize-none text-sm shadow-inner" value={form.notes} onChange={e => setForm({...form, notes: e.target.value})} placeholder="請輸入備註..." />
                   </div>
-                  <Button type="submit" size="lg" className="w-full mt-4 h-14">完成送出</Button>
+                  <Button 
+                    type="submit" 
+                    size="lg" 
+                    className="w-full mt-4 h-14"
+                    disabled={!form.patientName || !form.time || !form.therapistId || !form.treatmentId || !form.treatmentRoom}
+                  >
+                    完成送出
+                  </Button>
                </form>
+            </Modal>
+
+            {/* Patient History Modal */}
+            <Modal isOpen={!!showHistory} onClose={() => setShowHistory(null)} title={`${showHistory} 的預約歷程`}>
+              <div className="space-y-4">
+                {appointments.filter(a => a.patientName === showHistory).sort((a,b) => (b.date + b.time).localeCompare(a.date + a.time)).map(a => {
+                  const tr = treatments.find(t => t.id === a.treatmentId);
+                  const config = STATUS_CONFIG[a.status || 'scheduled'];
+                  return (
+                    <div key={a.id} className={`p-4 rounded-2xl border ${config.bg} ${config.border} flex justify-between items-center`}>
+                      <div>
+                        <p className="text-xs font-black text-stone-800">{a.date} {a.time}</p>
+                        <p className="text-[10px] font-bold text-stone-500">{tr?.name}</p>
+                      </div>
+                      <div className="text-right">
+                        <span className={`text-[10px] font-black ${config.text}`}>{config.label}</span>
+                        <p className="text-[10px] font-black text-brand-orange">${a.patientPrice}</p>
+                      </div>
+                    </div>
+                  );
+                })}
+                {appointments.filter(a => a.patientName === showHistory).length === 0 && (
+                  <p className="text-center py-8 text-stone-400 font-bold">尚無預約紀錄</p>
+                )}
+              </div>
             </Modal>
           </div>
         );
