@@ -543,9 +543,9 @@
                   {/* Room Columns */}
                   <div className="flex-1 grid relative" style={{ gridTemplateColumns: `repeat(${TREATMENT_ROOMS.length}, minmax(0, 1fr))`, height: '4480px' }}>
                     {/* Grid Lines */}
-                    <div className="absolute inset-0 grid pointer-events-none" style={{ gridTemplateRows: 'repeat(14, 320px)' }}>
-                      {Array.from({length: 14}).map((_, i) => (
-                        <div key={i} className="border-b border-stone-100/50"></div>
+                    <div className="absolute inset-0 grid pointer-events-none" style={{ gridTemplateRows: 'repeat(28, 160px)' }}>
+                      {Array.from({length: 28}).map((_, i) => (
+                        <div key={i} className={`border-b ${i % 2 === 1 ? 'border-stone-100/50' : 'border-stone-100/10 border-dashed'}`}></div>
                       ))}
                     </div>
                     {/* Columns */}
@@ -553,36 +553,41 @@
                       const roomGroups = groupedApts.filter(g => g.treatmentRoom === room);
                       return (
                         <div key={room} className="border-r border-stone-100 last:border-none relative h-full">
-                          {/* Clickable Grid Cells */}
+                          {/* Clickable Grid Cells (Half-hour increments) */}
                           <div className="absolute inset-0 flex flex-col z-0">
-                            {Array.from({length: 14}, (_, i) => i + 8).map(hour => (
-                              <div 
-                                key={hour} 
-                                className="h-[320px] border-b border-transparent hover:bg-brand-orange/5 cursor-pointer transition-colors group relative"
-                                onClick={() => {
-                                  if (user?.role !== 'therapist') {
-                                    setEditingApt(null);
-                                    setForm({
-                                      patientName: '',
-                                      time: `${hour.toString().padStart(2, '0')}:00`,
-                                      date: selectedDate,
-                                      therapistId: '',
-                                      treatmentId: '',
-                                      notes: '',
-                                      treatmentRoom: room,
-                                      category: '心理'
-                                    });
-                                    setIsAddOpen(true);
-                                  }
-                                }}
-                              >
-                                {user?.role !== 'therapist' && (
-                                  <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                                    <Plus className="text-brand-orange/50" size={24} />
-                                  </div>
-                                )}
-                              </div>
-                            ))}
+                            {Array.from({length: 28}, (_, i) => {
+                              const hour = Math.floor(i / 2) + 8;
+                              const minute = (i % 2) * 30;
+                              const timeStr = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
+                              return (
+                                <div 
+                                  key={timeStr} 
+                                  className="h-[160px] border-b border-stone-100/10 hover:bg-brand-orange/5 cursor-pointer transition-colors group relative"
+                                  onClick={() => {
+                                    if (user?.role !== 'therapist') {
+                                      setEditingApt(null);
+                                      setForm({
+                                        patientName: '',
+                                        time: timeStr,
+                                        date: selectedDate,
+                                        therapistId: '',
+                                        treatmentId: '',
+                                        notes: '',
+                                        treatmentRoom: room,
+                                        category: '心理'
+                                      });
+                                      setIsAddOpen(true);
+                                    }
+                                  }}
+                                >
+                                  {user?.role !== 'therapist' && (
+                                    <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                      <Plus className="text-brand-orange/30" size={20} />
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
                           </div>
 
                           {roomGroups.map(group => {
