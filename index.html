@@ -160,7 +160,7 @@
         const [selectedDate, setSelectedDate] = useState(format(new Date(), 'yyyy-MM-dd'));
         const [isAddOpen, setIsAddOpen] = useState(false);
         const [editingApt, setEditingApt] = useState(null);
-        const [hoveredAptId, setHoveredAptId] = useState(null);
+        const [hoveredHour, setHoveredHour] = useState(null);
         
         const [form, setForm] = useState({ 
           patientName: '', time: '09:00', date: '', therapistId: '', treatmentId: '', 
@@ -528,17 +528,12 @@
                 {/* Time Grid */}
                 <div className="flex overflow-y-auto max-h-[600px] relative">
                   {/* Time Labels */}
-                  <div className="w-16 shrink-0 border-r border-stone-100 bg-stone-50/30 flex flex-col">
+                  <div className="w-16 shrink-0 border-r border-stone-100 bg-stone-50/30 grid" style={{ gridTemplateRows: 'repeat(14, 320px)' }}>
                     {Array.from({length: 14}, (_, i) => i + 8).map(hour => {
-                      const isHovered = hoveredAptId && (() => {
-                        const apt = appointments.find(a => a.id === hoveredAptId);
-                        if (!apt) return false;
-                        const [h] = apt.time.split(':').map(Number);
-                        return h === hour;
-                      })();
+                      const isHovered = hoveredHour === hour;
                       return (
                         <div key={hour} className={`h-[320px] border-b border-stone-100 relative transition-colors ${isHovered ? 'bg-brand-orange/10' : ''}`}>
-                          <span className={`absolute -top-2.5 right-2 text-[10px] font-black transition-colors ${isHovered ? 'text-brand-orange scale-125' : 'text-stone-400'}`}>
+                          <span className={`absolute -top-2.5 right-2 text-[10px] font-black transition-all duration-300 ${isHovered ? 'text-brand-orange scale-150 -translate-x-1' : 'text-stone-400'}`}>
                             {hour.toString().padStart(2, '0')}:00
                           </span>
                         </div>
@@ -596,17 +591,21 @@
                             const treatment = treatments.find(t => t.id === group.treatmentId);
                             const therapist = therapists.find(t => t.id === group.therapistId);
                             const isGroup = group.isGroup;
+                            const isHovered = hoveredHour === h;
                             
                             return (
                               <div 
                                 key={group.id}
-                                onMouseEnter={() => setHoveredAptId(group.id)}
-                                onMouseLeave={() => setHoveredAptId(null)}
-                                className={`absolute left-1 right-1 p-2 rounded-xl border text-xs transition-all shadow-sm flex flex-col gap-1 overflow-hidden hover:z-20 hover:shadow-md bg-white z-10 ${isGroup ? 'border-brand-orange/40 ring-2 ring-brand-orange/10' : 'border-stone-200'} ${hoveredAptId === group.id ? 'scale-[1.02] border-brand-orange ring-2 ring-brand-orange/20 shadow-lg' : ''}`}
+                                onMouseEnter={() => setHoveredHour(h)}
+                                onMouseLeave={() => setHoveredHour(null)}
+                                className={`absolute left-1 right-1 p-2 rounded-xl border text-xs transition-all duration-300 shadow-sm flex flex-col gap-1 overflow-hidden hover:z-20 hover:shadow-md bg-white z-10 ${isGroup ? 'border-brand-orange/40 ring-2 ring-brand-orange/10' : 'border-stone-200'} ${isHovered ? 'scale-[1.03] border-brand-orange ring-4 ring-brand-orange/10 shadow-xl z-30' : ''}`}
                                 style={{ top: `${top}px`, minHeight: '100px' }}
                               >
                                 <div className="flex justify-between items-start">
-                                  <span className="font-black text-stone-800">{treatment?.name}</span>
+                                  <div className="flex flex-col">
+                                    <span className="text-[10px] font-black text-brand-orange mb-0.5">{group.time}</span>
+                                    <span className="font-black text-stone-800">{treatment?.name}</span>
+                                  </div>
                                   <span className="text-[10px] font-bold text-brand-orange bg-brand-orange/10 px-1.5 py-0.5 rounded">${treatment?.patientPrice || 0}</span>
                                 </div>
                                 <div className="text-[10px] text-stone-500 font-bold flex items-center gap-1">
@@ -877,17 +876,12 @@
                 {/* Time Grid */}
                 <div className="flex overflow-y-auto max-h-[600px] relative">
                   {/* Time Labels */}
-                  <div className="w-16 shrink-0 border-r border-stone-100 bg-stone-50/30 flex flex-col">
+                  <div className="w-16 shrink-0 border-r border-stone-100 bg-stone-50/30 grid" style={{ gridTemplateRows: 'repeat(14, 256px)' }}>
                     {Array.from({length: 14}, (_, i) => i + 8).map(hour => {
-                      const isHovered = hoveredAptId && (() => {
-                        const apt = appointments.find(a => a.id === hoveredAptId);
-                        if (!apt) return false;
-                        const [h] = apt.time.split(':').map(Number);
-                        return h === hour;
-                      })();
+                      const isHovered = hoveredHour === hour;
                       return (
                         <div key={hour} className={`h-[256px] border-b border-stone-100 relative transition-colors ${isHovered ? 'bg-brand-orange/10' : ''}`}>
-                          <span className={`absolute -top-2.5 right-2 text-[10px] font-black transition-colors ${isHovered ? 'text-brand-orange scale-125' : 'text-stone-400'}`}>
+                          <span className={`absolute -top-2.5 right-2 text-[10px] font-black transition-all duration-300 ${isHovered ? 'text-brand-orange scale-150 -translate-x-1' : 'text-stone-400'}`}>
                             {hour.toString().padStart(2, '0')}:00
                           </span>
                         </div>
@@ -912,11 +906,13 @@
                             const [h, m] = a.time.split(':').map(Number);
                             const top = ((h - 8) + m / 60) * 256; // 256px per hour
                             const config = STATUS_CONFIG[a.status || 'scheduled'];
+                            const isHovered = hoveredHour === h;
+                            
                             return (
                               <div 
                                 key={a.id} 
-                                onMouseEnter={() => setHoveredAptId(a.id)}
-                                onMouseLeave={() => setHoveredAptId(null)}
+                                onMouseEnter={() => setHoveredHour(h)}
+                                onMouseLeave={() => setHoveredHour(null)}
                                 onClick={() => { 
                                   if(user?.role !== 'therapist'){ 
                                     setEditingApt(a); 
@@ -927,7 +923,7 @@
                                     setIsAddOpen(true); 
                                   } 
                                 }}
-                                className={`absolute left-1 right-1 p-1.5 rounded-xl border text-[9px] font-black transition-all shadow-sm flex flex-col gap-0.5 overflow-hidden hover:z-20 hover:shadow-md ${config.bg} ${config.border} ${user?.role !== 'therapist' ? 'cursor-pointer hover:ring-2 hover:ring-brand-orange' : ''} ${hoveredAptId === a.id ? 'scale-[1.05] z-30 shadow-lg ring-2 ring-brand-orange' : ''}`}
+                                className={`absolute left-1 right-1 p-1.5 rounded-xl border text-[9px] font-black transition-all duration-300 shadow-sm flex flex-col gap-0.5 overflow-hidden hover:z-20 hover:shadow-md ${config.bg} ${config.border} ${user?.role !== 'therapist' ? 'cursor-pointer hover:ring-2 hover:ring-brand-orange' : ''} ${isHovered ? 'scale-[1.05] z-30 shadow-lg ring-4 ring-brand-orange/20 border-brand-orange' : ''}`}
                                 style={{ top: `${top}px`, minHeight: '60px' }}
                                 title={`${a.time} - ${a.patientName}`}
                               >
