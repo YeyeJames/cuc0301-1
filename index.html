@@ -74,11 +74,12 @@
       import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
       import { 
         Plus, ChevronLeft, ChevronRight, Calendar, CheckCircle, Banknote, Trash2, RotateCcw, 
-        X, Settings, LogOut, User as UserIcon, ChartColumn, Download, Upload, Brain, Activity, Zap, Briefcase, FileText, Coffee, Users as UsersIcon, UserPlus, Users, Edit3, Menu, Info, CircleUser
+        X, Settings, LogOut, User as UserIcon, ChartColumn, Download, Upload, Brain, Activity, Zap, Briefcase, FileText, Coffee, Users as UsersIcon, UserPlus, Users, Edit3, Menu, Info, CircleUser,
+        Copy
       } from 'lucide-react';
 
       // --- Data Service ---
-      const TREATMENT_ROOMS = ['二診', '3-1', '3-2', '3-3', 'rTMS室'];
+      const TREATMENT_ROOMS = ['二診', '3-1', '3-2', '3-3', 'rTMS室', '4-1', '4-2', '4-3'];
       const CATEGORIES = ['心理', '職能', 'rTMS'];
       const KEYS = { THERAPISTS: 'jiale_therapists', TREATMENTS: 'jiale_treatments', APPOINTMENTS: 'jiale_appointments', SESSION: 'jiale_session', ACCOUNTS: 'jiale_accounts' };
 
@@ -141,6 +142,8 @@
       const ScheduleView = ({ user, appointments, therapists, treatments, onAdd, onUpdate, onDelete }) => {
         const [filters, setFilters] = useState({ therapistId: '', category: '', status: '' });
         const [showHistory, setShowHistory] = useState(null); // patientName
+        const [groupCopyModal, setGroupCopyModal] = useState(null);
+        const [groupCopyForm, setGroupCopyForm] = useState({ startDate: '', time: '', weeks: 1 });
 
         const filteredAppointments = useMemo(() => {
           let filtered = appointments;
@@ -238,6 +241,33 @@
                 onUpdate(a.id, updates);
               }}
               className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all shadow-sm outline-none appearance-none cursor-pointer border ${config.bg} ${config.border} ${config.text}`}
+            >
+              {Object.entries(STATUS_CONFIG).map(([key, val]) => (
+                <option key={key} value={key} className="text-stone-800 bg-white">{val.label}</option>
+              ))}
+            </select>
+          );
+        };
+
+        const renderSmallStatusActions = (a) => {
+          const currentStatus = a.status || 'scheduled';
+          const config = STATUS_CONFIG[currentStatus];
+          return (
+            <select 
+              value={currentStatus} 
+              onChange={(e) => {
+                const newStatus = e.target.value;
+                const updates = { status: newStatus };
+                if (newStatus === 'completed') {
+                  updates.isPaid = true;
+                  updates.paidAmount = a.patientPrice;
+                } else {
+                  updates.isPaid = false;
+                  updates.paidAmount = 0;
+                }
+                onUpdate(a.id, updates);
+              }}
+              className={`px-1 py-0.5 rounded text-[9px] font-black transition-all outline-none appearance-none cursor-pointer border ${config.bg} ${config.border} ${config.text}`}
             >
               {Object.entries(STATUS_CONFIG).map(([key, val]) => (
                 <option key={key} value={key} className="text-stone-800 bg-white">{val.label}</option>
@@ -379,9 +409,9 @@
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div className="flex items-center gap-2">
                   <div className="flex bg-stone-100 p-1.5 rounded-2xl w-fit">
-                    {['day', 'week', 'month'].map(m => (
+                    {['day', 'day-table', 'week', 'month'].map(m => (
                       <button key={m} onClick={() => setViewMode(m)} className={`px-5 py-2 rounded-xl text-xs font-black transition-all ${viewMode === m ? 'bg-white shadow-sm text-stone-800' : 'text-stone-400 hover:text-stone-500'}`}>
-                        {m === 'day' ? '日視圖' : m === 'week' ? '週曆' : '月曆'}
+                        {m === 'day' ? '日視圖' : m === 'day-table' ? '日視圖(表格)' : m === 'week' ? '週曆' : '月曆'}
                       </button>
                     ))}
                   </div>
@@ -400,7 +430,7 @@
                     if (viewMode === 'month') {
                       setSelectedDate(format(startOfMonth(addMonths(currentSelected, -1)), 'yyyy-MM-dd'));
                     } else {
-                      setSelectedDate(format(addDays(currentSelected, viewMode === 'day' ? -1 : -7), 'yyyy-MM-dd'));
+                      setSelectedDate(format(addDays(currentSelected, (viewMode === 'day' || viewMode === 'day-table') ? -1 : -7), 'yyyy-MM-dd'));
                     }
                   }} className="p-2.5 hover:bg-stone-50 rounded-xl border border-stone-100"><ChevronLeft size={20}/></button>
                   <div className="text-center min-w-[140px] font-black relative cursor-pointer">
@@ -412,7 +442,7 @@
                     if (viewMode === 'month') {
                       setSelectedDate(format(startOfMonth(addMonths(currentSelected, 1)), 'yyyy-MM-dd'));
                     } else {
-                      setSelectedDate(format(addDays(currentSelected, viewMode === 'day' ? 1 : 7), 'yyyy-MM-dd'));
+                      setSelectedDate(format(addDays(currentSelected, (viewMode === 'day' || viewMode === 'day-table') ? 1 : 7), 'yyyy-MM-dd'));
                     }
                   }} className="p-2.5 hover:bg-stone-50 rounded-xl border border-stone-100"><ChevronRight size={20}/></button>
                 </div>
@@ -481,6 +511,172 @@
             </div>
 
             {/* Content Logic */}
+            {viewMode === 'day-table' && (
+              <div className="bg-white rounded-[2.5rem] border border-stone-100 shadow-sm overflow-hidden flex flex-col">
+                {/* Header Row */}
+                <div className="flex border-b border-stone-100 bg-stone-50/50">
+                  <div className="w-16 shrink-0 border-r border-stone-100"></div>
+                  <div className="flex-1 grid" style={{ gridTemplateColumns: `repeat(${TREATMENT_ROOMS.length}, minmax(0, 1fr))` }}>
+                    {TREATMENT_ROOMS.map(room => (
+                      <div key={room} className="text-center py-3 border-r border-stone-100 last:border-none">
+                        <p className="text-sm font-black text-stone-700">{room}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                {/* Time Grid */}
+                <div className="flex overflow-y-auto max-h-[600px] relative">
+                  {/* Time Labels */}
+                  <div className="w-16 shrink-0 border-r border-stone-100 bg-stone-50/30 flex flex-col">
+                    {Array.from({length: 14}, (_, i) => i + 8).map(hour => (
+                      <div key={hour} className="h-48 border-b border-stone-100 relative">
+                        <span className="absolute -top-2.5 right-2 text-[10px] font-black text-stone-400">{hour.toString().padStart(2, '0')}:00</span>
+                      </div>
+                    ))}
+                  </div>
+                  {/* Room Columns */}
+                  <div className="flex-1 grid relative" style={{ gridTemplateColumns: `repeat(${TREATMENT_ROOMS.length}, minmax(0, 1fr))`, height: '2688px' }}>
+                    {/* Grid Lines */}
+                    <div className="absolute inset-0 grid grid-rows-[repeat(14,12rem)] pointer-events-none">
+                      {Array.from({length: 14}).map((_, i) => (
+                        <div key={i} className="border-b border-stone-100/50"></div>
+                      ))}
+                    </div>
+                    {/* Columns */}
+                    {TREATMENT_ROOMS.map(room => {
+                      const roomGroups = groupedApts.filter(g => g.treatmentRoom === room);
+                      return (
+                        <div key={room} className="border-r border-stone-100 last:border-none relative h-full">
+                          {/* Clickable Grid Cells */}
+                          <div className="absolute inset-0 flex flex-col z-0">
+                            {Array.from({length: 14}, (_, i) => i + 8).map(hour => (
+                              <div 
+                                key={hour} 
+                                className="h-48 border-b border-transparent hover:bg-brand-orange/5 cursor-pointer transition-colors group relative"
+                                onClick={() => {
+                                  if (user?.role !== 'therapist') {
+                                    setEditingApt(null);
+                                    setForm({
+                                      patientName: '',
+                                      time: `${hour.toString().padStart(2, '0')}:00`,
+                                      date: selectedDate,
+                                      therapistId: '',
+                                      treatmentId: '',
+                                      notes: '',
+                                      treatmentRoom: room,
+                                      category: '心理'
+                                    });
+                                    setIsAddOpen(true);
+                                  }
+                                }}
+                              >
+                                {user?.role !== 'therapist' && (
+                                  <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <Plus className="text-brand-orange/50" size={24} />
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+
+                          {roomGroups.map(group => {
+                            const [h, m] = group.time.split(':').map(Number);
+                            const top = ((h - 8) + m / 60) * 192; // 192px per hour (12rem = 192px)
+                            const treatment = treatments.find(t => t.id === group.treatmentId);
+                            const therapist = therapists.find(t => t.id === group.therapistId);
+                            const isGroup = group.isGroup;
+                            
+                            return (
+                              <div 
+                                key={group.id}
+                                className={`absolute left-1 right-1 p-2 rounded-xl border text-xs transition-all shadow-sm flex flex-col gap-1 overflow-hidden hover:z-20 hover:shadow-md bg-white z-10 ${isGroup ? 'border-brand-orange/40 ring-2 ring-brand-orange/10' : 'border-stone-200'}`}
+                                style={{ top: `${top}px`, minHeight: '80px' }}
+                              >
+                                <div className="flex justify-between items-start">
+                                  <span className="font-black text-stone-800">{treatment?.name}</span>
+                                  <span className="text-[10px] font-bold text-brand-orange bg-brand-orange/10 px-1.5 py-0.5 rounded">${treatment?.patientPrice || 0}</span>
+                                </div>
+                                <div className="text-[10px] text-stone-500 font-bold flex items-center gap-1">
+                                  <UsersIcon size={10}/> {therapist?.name}
+                                </div>
+                                
+                                <div className="mt-1 space-y-1">
+                                  {group.patients.map(p => {
+                                    const config = STATUS_CONFIG[p.status || 'scheduled'];
+                                    return (
+                                      <div key={p.id} className={`flex flex-col gap-1 p-1.5 rounded border ${config.bg} ${config.border}`}>
+                                        <div className="flex items-center justify-between">
+                                          <span className={`font-bold truncate ${config.text}`}>{p.patientName}</span>
+                                          {renderSmallStatusActions(p)}
+                                        </div>
+                                        {user?.role !== 'therapist' && (
+                                          <div className="flex items-center justify-end gap-1 mt-1">
+                                            <button onClick={() => { 
+                                              setEditingApt(p); 
+                                              setForm({
+                                                ...p,
+                                                category: treatment?.category || '心理'
+                                              }); 
+                                              setIsAddOpen(true); 
+                                            }} className="px-1.5 py-0.5 rounded bg-white text-stone-400 hover:text-brand-orange text-[9px] font-black shadow-sm border border-stone-100" title="編輯">編輯</button>
+                                            <button onClick={() => { 
+                                              setEditingApt(null); 
+                                              setForm({
+                                                ...p,
+                                                id: undefined,
+                                                category: treatment?.category || '心理'
+                                              }); 
+                                              setIsAddOpen(true); 
+                                            }} className="px-1.5 py-0.5 rounded bg-white text-stone-400 hover:text-brand-orange text-[9px] font-black shadow-sm border border-stone-100" title="複製">複製</button>
+                                            <button onClick={() => confirm('確定刪除此預約？') && onDelete(p.id)} className="px-1.5 py-0.5 rounded bg-white text-stone-400 hover:text-red-500 text-[9px] font-black shadow-sm border border-stone-100" title="刪除">刪除</button>
+                                          </div>
+                                        )}
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                                {isGroup && user?.role !== 'therapist' && (
+                                  <div className="mt-2 flex gap-1">
+                                    <button onClick={() => {
+                                      setGroupCopyModal(group);
+                                      setGroupCopyForm({
+                                        startDate: format(addDays(new Date(selectedDate), 7), 'yyyy-MM-dd'),
+                                        time: group.time,
+                                        weeks: 1
+                                      });
+                                    }} className="flex-1 py-1 rounded bg-stone-100 text-[9px] font-black text-stone-600 hover:bg-stone-200 flex items-center justify-center gap-1">
+                                      <Copy size={10}/> 複製團體
+                                    </button>
+                                    <button onClick={() => {
+                                      setEditingApt(null);
+                                      setForm({ 
+                                        patientName: '', 
+                                        time: group.time, 
+                                        date: selectedDate,
+                                        therapistId: group.therapistId, 
+                                        treatmentId: group.treatmentId, 
+                                        notes: '', 
+                                        treatmentRoom: group.treatmentRoom,
+                                        isGroup: true,
+                                        category: treatment?.category || '心理'
+                                      });
+                                      setIsAddOpen(true);
+                                    }} className="flex-1 py-1 rounded bg-brand-orange text-[9px] font-black text-white hover:bg-stone-900 flex items-center justify-center gap-1">
+                                      <UserPlus size={10}/> 新增
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            )}
+
             {viewMode === 'day' && (
               <div className="space-y-4">
                 {groupedApts.length === 0 ? (
@@ -514,6 +710,19 @@
                             </div>
                           </div>
                           
+                          <div className="flex items-center gap-2">
+                              {isGroup && user?.role !== 'therapist' && (
+                                <button onClick={() => {
+                                  setGroupCopyModal(group);
+                                  setGroupCopyForm({
+                                    startDate: format(addDays(new Date(selectedDate), 7), 'yyyy-MM-dd'),
+                                    time: group.time,
+                                    weeks: 1
+                                  });
+                                }} className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-stone-100 text-stone-600 hover:bg-stone-200 transition-all text-[11px] font-black shadow-sm">
+                                  <Copy size={14} /> 複製團體
+                                </button>
+                              )}
                               {isGroup && user?.role !== 'therapist' && (
                                 <button onClick={() => {
                                   setEditingApt(null);
@@ -533,6 +742,7 @@
                                   <UserPlus size={14} /> 新增個案
                                 </button>
                               )}
+                          </div>
                         </div>
 
                         {/* 個案顯示區 */}
@@ -611,6 +821,17 @@
                                     {user?.role !== 'therapist' && (
                                       <button onClick={() => confirm('確定刪除此預約？') && onDelete(a.id)} className="p-2 text-stone-300 hover:text-red-500 transition-all"><Trash2 size={18}/></button>
                                     )}
+                                    {user?.role !== 'therapist' && (
+                                      <button onClick={() => { 
+                                        setEditingApt(null); 
+                                        setForm({
+                                          ...a,
+                                          id: undefined,
+                                          category: treatments.find(t => t.id === a.treatmentId)?.category || '心理'
+                                        }); 
+                                        setIsAddOpen(true); 
+                                      }} className="p-2 text-stone-300 hover:text-brand-orange transition-all" title="複製預約"><Copy size={18}/></button>
+                                    )}
                                   </div>
                                 </div>
                               );
@@ -625,41 +846,84 @@
             )}
 
             {viewMode === 'week' && (
-              <div className="grid grid-cols-1 sm:grid-cols-7 gap-3">
-                {weekDays.map(day => {
-                  const ds = format(day, 'yyyy-MM-dd');
-                  const dayApts = getAppointmentsForDate(ds);
-                  return (
-                    <div key={ds} className={`min-h-[250px] rounded-[2rem] border p-4 flex flex-col transition-all ${getDayStyleClass(day)}`}>
-                      <div className="text-center mb-4">
-                        <p className={`text-[10px] font-black uppercase mb-1 tracking-widest`}>{format(day, 'EEE')}</p>
-                        <button onClick={() => {setSelectedDate(ds); setViewMode('day');}} className={`text-2xl font-black w-10 h-10 mx-auto flex items-center justify-center rounded-full transition-all hover:scale-110 ${isToday(day) ? 'bg-brand-orange text-white shadow-lg' : ''}`}>
+              <div className="bg-white rounded-[2.5rem] border border-stone-100 shadow-sm overflow-hidden flex flex-col">
+                {/* Header Row */}
+                <div className="flex border-b border-stone-100 bg-stone-50/50">
+                  <div className="w-16 shrink-0 border-r border-stone-100"></div>
+                  <div className="flex-1 grid grid-cols-7">
+                    {weekDays.map(day => (
+                      <div key={day.toISOString()} className={`text-center py-3 border-r border-stone-100 last:border-none ${getDayTextClass(day)}`}>
+                        <p className="text-[10px] font-black uppercase tracking-widest">{format(day, 'EEE')}</p>
+                        <button onClick={() => {setSelectedDate(format(day, 'yyyy-MM-dd')); setViewMode('day');}} className={`mt-1 text-lg font-black w-8 h-8 mx-auto flex items-center justify-center rounded-full transition-all hover:scale-110 ${isToday(day) ? 'bg-brand-orange text-white shadow-md' : ''}`}>
                           {format(day, 'd')}
                         </button>
                       </div>
-                      <div className="flex-1 space-y-2 overflow-y-auto no-scrollbar">
-                        {dayApts.map(a => (
-                          <div key={a.id} onClick={() => { 
-                            if(user?.role !== 'therapist'){ 
-                              setEditingApt(a); 
-                              setForm({
-                                ...a,
-                                category: treatments.find(t => t.id === a.treatmentId)?.category || '心理'
-                              }); 
-                              setIsAddOpen(true); 
-                            } 
-                          }} className={`p-2 rounded-xl bg-white/90 border border-stone-100 text-[10px] font-black ${user?.role !== 'therapist' ? 'cursor-pointer hover:border-brand-orange hover:shadow-md' : ''} transition-all shadow-sm flex flex-col gap-0.5`}>
-                            <span className="text-brand-orange opacity-80">{a.time}</span>
-                            <span className="text-stone-800 break-words leading-tight">{a.patientName}</span>
-                          </div>
-                        ))}
+                    ))}
+                  </div>
+                </div>
+                {/* Time Grid */}
+                <div className="flex overflow-y-auto max-h-[600px] relative">
+                  {/* Time Labels */}
+                  <div className="w-16 shrink-0 border-r border-stone-100 bg-stone-50/30 flex flex-col">
+                    {Array.from({length: 14}, (_, i) => i + 8).map(hour => (
+                      <div key={hour} className="h-24 border-b border-stone-100 relative">
+                        <span className="absolute -top-2.5 right-2 text-[10px] font-black text-stone-400">{hour.toString().padStart(2, '0')}:00</span>
                       </div>
-                      {user?.role !== 'therapist' && (
-                        <button onClick={() => {setSelectedDate(ds); setEditingApt(null); setForm({ patientName: '', time: '09:00', date: ds, therapistId: '', treatmentId: '', notes: '', treatmentRoom: '二診', category: '心理' }); setIsAddOpen(true);}} className="mt-3 w-full py-2 flex items-center justify-center text-stone-300 hover:text-brand-orange hover:bg-white rounded-xl transition-all border border-dashed border-stone-200 hover:border-brand-orange"><Plus size={18}/></button>
-                      )}
+                    ))}
+                  </div>
+                  {/* Day Columns */}
+                  <div className="flex-1 grid grid-cols-7 relative" style={{ height: '1344px' }}>
+                    {/* Grid Lines */}
+                    <div className="absolute inset-0 grid grid-rows-[repeat(14,6rem)] pointer-events-none">
+                      {Array.from({length: 14}).map((_, i) => (
+                        <div key={i} className="border-b border-stone-100/50"></div>
+                      ))}
                     </div>
-                  );
-                })}
+                    {/* Columns */}
+                    {weekDays.map(day => {
+                      const ds = format(day, 'yyyy-MM-dd');
+                      const dayApts = getAppointmentsForDate(ds);
+                      return (
+                        <div key={ds} className="border-r border-stone-100 last:border-none relative h-full">
+                          {dayApts.map(a => {
+                            const [h, m] = a.time.split(':').map(Number);
+                            const top = ((h - 8) + m / 60) * 96; // 96px per hour, starting from 8:00
+                            const config = STATUS_CONFIG[a.status || 'scheduled'];
+                            return (
+                              <div 
+                                key={a.id} 
+                                onClick={() => { 
+                                  if(user?.role !== 'therapist'){ 
+                                    setEditingApt(a); 
+                                    setForm({
+                                      ...a,
+                                      category: treatments.find(t => t.id === a.treatmentId)?.category || '心理'
+                                    }); 
+                                    setIsAddOpen(true); 
+                                  } 
+                                }}
+                                className={`absolute left-1 right-1 p-1.5 rounded-xl border text-[9px] font-black transition-all shadow-sm flex flex-col gap-0.5 overflow-hidden hover:z-10 hover:shadow-md ${config.bg} ${config.border} ${user?.role !== 'therapist' ? 'cursor-pointer hover:ring-2 hover:ring-brand-orange' : ''}`}
+                                style={{ top: `${top}px`, minHeight: '40px' }}
+                                title={`${a.time} - ${a.patientName}`}
+                              >
+                                <span className={`${config.text} opacity-80 leading-none`}>{a.time}</span>
+                                <span className="text-stone-800 truncate leading-tight">{a.patientName}</span>
+                              </div>
+                            );
+                          })}
+                          {user?.role !== 'therapist' && (
+                            <button 
+                              onClick={() => {setSelectedDate(ds); setEditingApt(null); setForm({ patientName: '', time: '09:00', date: ds, therapistId: '', treatmentId: '', notes: '', treatmentRoom: '二診', category: '心理' }); setIsAddOpen(true);}} 
+                              className="absolute bottom-4 left-1/2 -translate-x-1/2 w-8 h-8 flex items-center justify-center bg-white text-stone-300 hover:text-brand-orange hover:border-brand-orange rounded-full transition-all border border-stone-200 shadow-sm z-10"
+                            >
+                              <Plus size={16}/>
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
               </div>
             )}
 
@@ -806,6 +1070,70 @@
                     完成送出
                   </Button>
                </form>
+            </Modal>
+
+            {/* Group Copy Modal */}
+            <Modal isOpen={!!groupCopyModal} onClose={() => setGroupCopyModal(null)} title="複製團體治療">
+              <form onSubmit={(e) => {
+                e.preventDefault();
+                const newApts = [];
+                let currentDate = new Date(groupCopyForm.startDate);
+                
+                for (let i = 0; i < groupCopyForm.weeks; i++) {
+                  const dateStr = format(currentDate, 'yyyy-MM-dd');
+                  
+                  groupCopyModal.patients.forEach(p => {
+                    newApts.push({
+                      ...p,
+                      id: `apt_${Date.now()}_${Math.random()}`,
+                      date: dateStr,
+                      time: groupCopyForm.time,
+                      status: 'scheduled',
+                      isPaid: false,
+                      paidAmount: 0
+                    });
+                  });
+                  
+                  currentDate = addDays(currentDate, 7);
+                }
+                
+                onAdd(newApts);
+                setGroupCopyModal(null);
+              }} className="space-y-4">
+                <div className="bg-brand-orange/5 p-4 rounded-2xl border border-brand-orange/20 mb-4">
+                  <p className="text-xs font-black text-brand-orange mb-1">將複製以下內容：</p>
+                  <p className="text-sm font-bold text-stone-700">
+                    {treatments.find(t => t.id === groupCopyModal?.treatmentId)?.name} 
+                    ({groupCopyModal?.patients.length} 位個案)
+                  </p>
+                  <p className="text-[10px] text-stone-500 mt-1">
+                    治療師：{therapists.find(t => t.id === groupCopyModal?.therapistId)?.name} | 
+                    治療室：{groupCopyModal?.treatmentRoom}
+                  </p>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-[10px] font-black text-stone-400 uppercase tracking-widest mb-1.5 ml-2">起始日期</label>
+                    <input type="date" className="w-full h-12 px-5 rounded-2xl border-2 border-stone-50 bg-stone-50 font-bold outline-none focus:border-brand-orange transition-all shadow-inner" value={groupCopyForm.startDate} onChange={e => setGroupCopyForm({...groupCopyForm, startDate: e.target.value})} required />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-black text-stone-400 uppercase tracking-widest mb-1.5 ml-2">預約時間</label>
+                    <input type="time" className="w-full h-12 px-5 rounded-2xl border-2 border-stone-50 bg-stone-50 font-bold outline-none focus:border-brand-orange transition-all shadow-inner" value={groupCopyForm.time} onChange={e => setGroupCopyForm({...groupCopyForm, time: e.target.value})} required />
+                  </div>
+                </div>
+                
+                <div>
+                  <label className="block text-[10px] font-black text-stone-400 uppercase tracking-widest mb-1.5 ml-2">重複週數</label>
+                  <div className="flex items-center gap-3">
+                    <input type="number" min="1" max="52" className="w-full h-12 px-5 rounded-2xl border-2 border-stone-50 bg-stone-50 font-bold outline-none focus:border-brand-orange transition-all shadow-inner" value={groupCopyForm.weeks} onChange={e => setGroupCopyForm({...groupCopyForm, weeks: parseInt(e.target.value) || 1})} required />
+                    <span className="text-sm font-black text-stone-500 whitespace-nowrap">週</span>
+                  </div>
+                  <p className="text-[10px] text-stone-400 mt-2 ml-2">將從起始日期開始，每週同一時間自動建立預約。</p>
+                </div>
+                
+                <Button type="submit" size="lg" className="w-full mt-4 h-14">確認複製 ({groupCopyModal?.patients.length * groupCopyForm.weeks || 0} 筆預約)</Button>
+              </form>
             </Modal>
 
             {/* Patient History Modal */}
@@ -1696,7 +2024,7 @@
       };
 
       const App = () => {
-        const [user, setUser] = useState(null);
+        const [user, setUser] = useState(DataService.get(KEYS.SESSION, null));
         const [view, setView] = useState('schedule');
         const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
         const [syncStatus, setSyncStatus] = useState('connecting'); // connecting, synced, error
@@ -1875,7 +2203,15 @@
                   appointments={appointments} 
                   therapists={therapists} 
                   treatments={treatments} 
-                  onAdd={x => { setAppointments([...appointments, x]); addLog('新增預約', `個案: ${x.patientName}, 日期: ${x.date}`); }} 
+                  onAdd={x => { 
+                    if (Array.isArray(x)) {
+                      setAppointments(prev => [...prev, ...x]);
+                      addLog('批次新增預約', `共 ${x.length} 筆`);
+                    } else {
+                      setAppointments(prev => [...prev, x]); 
+                      addLog('新增預約', `個案: ${x.patientName}, 日期: ${x.date}`); 
+                    }
+                  }} 
                   onUpdate={(id, u) => { 
                     const old = appointments.find(a => a.id === id);
                     setAppointments(appointments.map(a => a.id === id ? { ...a, ...u } : a)); 
