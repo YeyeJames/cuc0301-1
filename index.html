@@ -957,8 +957,16 @@
                                 style={{ top: `${top}px`, minHeight: '60px' }}
                                 title={`${a.time} - ${a.patientName}`}
                               >
-                                <span className={`${config.text} opacity-80 leading-none`}>{a.time}</span>
-                                <span className="text-stone-800 truncate leading-tight">{a.patientName}</span>
+                                <div className="flex items-center justify-between gap-1">
+                                  <span className={`${config.text} opacity-80 leading-none`}>{a.time}</span>
+                                  <span className="text-brand-orange font-bold">${a.patientPrice || 0}</span>
+                                </div>
+                                <span className="text-stone-800 truncate leading-tight font-black">{a.patientName}</span>
+                                <div className="flex flex-col gap-0 pt-0.5 border-t border-stone-100/50 mt-0.5 overflow-hidden">
+                                  <span className="text-stone-500 truncate leading-none">{treatments.find(t => t.id === a.treatmentId)?.name}</span>
+                                  <span className="text-stone-400 truncate leading-none flex items-center gap-0.5"><UsersIcon size={8}/> {therapists.find(t => t.id === a.therapistId)?.name}</span>
+                                  {a.notes && <span className="text-stone-300 truncate italic leading-none">註：{a.notes}</span>}
+                                </div>
                               </div>
                             );
                           })}
