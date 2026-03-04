@@ -207,6 +207,7 @@
           const dayApts = appointments.filter(a => a.date === selectedDate);
           const summary = {
             total: dayApts.length,
+            revenue: dayApts.reduce((sum, a) => sum + (a.paidAmount || 0), 0)
           };
           Object.keys(STATUS_CONFIG).forEach(status => {
             summary[status] = dayApts.filter(a => (a.status || 'scheduled') === status).length;
@@ -413,6 +414,11 @@
                   <span className={`text-sm font-black ${config.text}`}>{selectedDateSummary[key] || 0}</span>
                 </div>
               ))}
+              <div className="ml-auto flex items-center gap-2 bg-emerald-50 px-4 py-1 rounded-full border border-emerald-100">
+                <Banknote size={14} className="text-emerald-500" />
+                <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">今日總收款</span>
+                <span className="text-lg font-black text-emerald-700">${selectedDateSummary.revenue.toLocaleString()}</span>
+              </div>
             </div>
 
             {/* Header Toolbar */}
