@@ -725,119 +725,123 @@
             )}
 
             {viewMode === 'day' && (
-              <div className="bg-white rounded-[2.5rem] border border-stone-100 shadow-sm overflow-hidden">
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left border-collapse">
-                    <thead>
-                      <tr className="bg-stone-50/50 border-b border-stone-100">
-                        <th className="py-4 px-6 text-[10px] font-black text-stone-400 uppercase tracking-widest w-24">時間</th>
-                        <th className="py-4 px-4 text-[10px] font-black text-stone-400 uppercase tracking-widest w-32">個案姓名</th>
-                        <th className="py-4 px-4 text-[10px] font-black text-stone-400 uppercase tracking-widest">治療項目</th>
-                        <th className="py-4 px-4 text-[10px] font-black text-stone-400 uppercase tracking-widest w-24">治療師</th>
-                        <th className="py-4 px-4 text-[10px] font-black text-stone-400 uppercase tracking-widest w-20">診間</th>
-                        <th className="py-4 px-4 text-[10px] font-black text-stone-400 uppercase tracking-widest w-20 text-right">收費</th>
-                        <th className="py-4 px-4 text-[10px] font-black text-stone-400 uppercase tracking-widest w-32 text-center">狀態</th>
-                        <th className="py-4 px-4 text-[10px] font-black text-stone-400 uppercase tracking-widest text-right">操作</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-stone-50">
-                      {dayApts.length === 0 ? (
-                        <tr>
-                          <td colSpan={8} className="py-32 text-center">
-                            <Coffee size={48} className="mx-auto text-stone-200 mb-4" />
-                            <p className="font-black text-stone-300">今日尚無排程</p>
-                          </td>
-                        </tr>
-                      ) : dayApts.map((a) => {
-                        const treatment = treatments.find(t => t.id === a.treatmentId);
-                        const therapist = therapists.find(t => t.id === a.therapistId);
-                        const config = STATUS_CONFIG[a.status || 'scheduled'];
-                        const isCancelled = a.status === 'leave' || a.status === 'cancelled';
+              <div className="space-y-4">
+                {groupedApts.length === 0 ? (
+                  <div className="bg-white rounded-[2.5rem] border border-stone-100 shadow-sm p-32 text-center">
+                    <Coffee size={48} className="mx-auto text-stone-200 mb-4" />
+                    <p className="font-black text-stone-300">今日尚無排程</p>
+                  </div>
+                ) : groupedApts.map((group) => {
+                  const treatment = treatments.find(t => t.id === group.treatmentId);
+                  const therapist = therapists.find(t => t.id === group.therapistId);
+                  const isGroup = group.isGroup;
 
-                        return (
-                          <tr key={a.id} className={`group hover:bg-stone-50/50 transition-colors ${isCancelled ? 'opacity-50 grayscale-[0.5]' : ''}`}>
-                            <td className="py-3 px-6">
-                              <span className={`text-xs font-black px-2 py-1 rounded-lg shadow-sm ${a.isGroup ? 'bg-brand-orange text-white' : 'bg-stone-800 text-white'}`}>
-                                {a.time}
-                              </span>
-                            </td>
-                            <td className="py-3 px-4">
-                              <div className="flex items-center gap-2">
-                                <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black bg-white border border-stone-100 shadow-sm ${config.text}`}>
+                  return (
+                    <div key={group.id} className={`bg-white rounded-[2rem] border shadow-sm overflow-hidden transition-all hover:shadow-md ${isGroup ? 'border-brand-orange/30 ring-1 ring-brand-orange/5' : 'border-stone-100'}`}>
+                      {/* Shared Header Info */}
+                      <div className={`px-6 py-4 flex flex-wrap items-center gap-6 border-b ${isGroup ? 'bg-brand-orange/5 border-brand-orange/10' : 'bg-stone-50/50 border-stone-100'}`}>
+                        <div className="flex items-center gap-3">
+                          <span className={`text-xs font-black px-3 py-1.5 rounded-xl shadow-sm ${isGroup ? 'bg-brand-orange text-white' : 'bg-stone-800 text-white'}`}>
+                            {group.time}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2 min-w-[120px]">
+                          <UsersIcon size={14} className="text-stone-400" />
+                          <span className="text-sm font-black text-stone-700">{therapist?.name}</span>
+                        </div>
+                        <div className="flex items-center gap-2 flex-1">
+                          <Brain size={14} className="text-stone-400" />
+                          <span className="text-sm font-black text-stone-700">{treatment?.name}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] font-black text-stone-400 bg-stone-100 px-2 py-1 rounded-lg uppercase tracking-widest">
+                            {group.treatmentRoom}
+                          </span>
+                        </div>
+                        {isGroup && user?.role !== 'therapist' && (
+                          <button onClick={() => {
+                            setEditingApt(null);
+                            setForm({ 
+                              patientName: '', 
+                              time: group.time, 
+                              date: selectedDate,
+                              therapistId: group.therapistId, 
+                              treatmentId: group.treatmentId, 
+                              notes: '', 
+                              treatmentRoom: group.treatmentRoom,
+                              isGroup: true,
+                              category: treatment?.category || '心理'
+                            });
+                            setIsAddingToGroup(true);
+                            setIsAddOpen(true);
+                          }} className="ml-auto flex items-center gap-1 px-3 py-1.5 bg-brand-orange text-white rounded-xl text-[10px] font-black hover:bg-stone-900 transition-all shadow-sm">
+                            <UserPlus size={12}/> 新增個案
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Patients List */}
+                      <div className="divide-y divide-stone-50">
+                        {group.patients.map((a) => {
+                          const config = STATUS_CONFIG[a.status || 'scheduled'];
+                          const isCancelled = a.status === 'leave' || a.status === 'cancelled';
+                          const pTreatment = treatments.find(t => t.id === a.treatmentId);
+                          const pTherapist = therapists.find(t => t.id === a.therapistId);
+                          
+                          return (
+                            <div key={a.id} className={`group px-6 py-4 flex items-center gap-6 hover:bg-stone-50/30 transition-colors ${isCancelled ? 'opacity-50 grayscale-[0.5]' : ''}`}>
+                              <div className="flex items-center gap-3 w-48">
+                                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-black bg-white border border-stone-100 shadow-sm ${config.text}`}>
                                   {a.patientName.charAt(0)}
                                 </div>
                                 <span className="text-sm font-black text-stone-700 cursor-pointer hover:text-brand-orange transition-all" onClick={() => setShowHistory(a.patientName)}>
                                   {a.patientName}
                                 </span>
                               </div>
-                            </td>
-                            <td className="py-3 px-4">
-                              <div className="flex flex-col">
-                                <span className="text-xs font-bold text-stone-600">{treatment?.name}</span>
-                                {a.notes && <span className="text-[10px] text-stone-400 italic truncate max-w-[150px]" title={a.notes}>{a.notes}</span>}
+
+                              {/* 如果是團體中個別項目不同，顯示標記 */}
+                              <div className="flex-1 flex flex-col">
+                                {isGroup && (a.treatmentId !== group.treatmentId || a.therapistId !== group.therapistId) && (
+                                  <div className="text-[10px] font-bold text-stone-400 flex items-center gap-3">
+                                    {a.treatmentId !== group.treatmentId && <span>{pTreatment?.name}</span>}
+                                    {a.therapistId !== group.therapistId && <span className="flex items-center gap-1"><UsersIcon size={10}/> {pTherapist?.name}</span>}
+                                  </div>
+                                )}
+                                {a.notes && <span className="text-[11px] text-stone-400 italic truncate max-w-[300px]" title={a.notes}>{a.notes}</span>}
                               </div>
-                            </td>
-                            <td className="py-3 px-4">
-                              <span className="text-xs font-bold text-stone-500 flex items-center gap-1">
-                                <UsersIcon size={12} className="text-stone-300" /> {therapist?.name}
-                              </span>
-                            </td>
-                            <td className="py-3 px-4">
-                              <span className="text-[10px] font-black text-stone-400 bg-stone-100 px-1.5 py-0.5 rounded uppercase tracking-tighter">
-                                {a.treatmentRoom}
-                              </span>
-                            </td>
-                            <td className="py-3 px-4 text-right">
-                              <span className="text-xs font-black text-brand-orange">${a.patientPrice || 0}</span>
-                            </td>
-                            <td className="py-3 px-4 text-center">
-                              <div className="flex justify-center">
+
+                              <div className="w-24 text-right">
+                                <span className="text-sm font-black text-brand-orange">${a.patientPrice || 0}</span>
+                              </div>
+
+                              <div className="w-32 flex justify-center">
                                 {renderSmallStatusActions(a)}
                               </div>
-                            </td>
-                            <td className="py-3 px-4 text-right">
-                              <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+
+                              <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity w-32">
                                 {user?.role !== 'therapist' && (
                                   <>
-                                    {a.isGroup && (
-                                      <button onClick={() => {
-                                        setEditingApt(null);
-                                        setForm({ 
-                                          patientName: '', 
-                                          time: a.time, 
-                                          date: a.date,
-                                          therapistId: a.therapistId, 
-                                          treatmentId: a.treatmentId, 
-                                          notes: '', 
-                                          treatmentRoom: a.treatmentRoom,
-                                          isGroup: true,
-                                          category: treatment?.category || '心理'
-                                        });
-                                        setIsAddingToGroup(true);
-                                        setIsAddOpen(true);
-                                      }} className="p-1.5 text-stone-400 hover:text-brand-orange transition-all" title="新增個案"><UserPlus size={14}/></button>
-                                    )}
                                     <button onClick={() => { 
                                       setEditingApt(a); 
-                                      setForm({ ...a, category: treatment?.category || '心理' }); 
+                                      setForm({ ...a, category: pTreatment?.category || '心理' }); 
                                       setIsAddOpen(true); 
-                                    }} className="p-1.5 text-stone-400 hover:text-brand-orange transition-all" title="編輯"><Edit3 size={14}/></button>
+                                    }} className="p-2 text-stone-400 hover:text-brand-orange transition-all" title="編輯"><Edit3 size={16}/></button>
                                     <button onClick={() => { 
                                       setEditingApt(null); 
-                                      setForm({ ...a, id: undefined, category: treatment?.category || '心理' }); 
+                                      setForm({ ...a, id: undefined, category: pTreatment?.category || '心理' }); 
                                       setIsAddOpen(true); 
-                                    }} className="p-1.5 text-stone-400 hover:text-brand-orange transition-all" title="複製"><Copy size={14}/></button>
-                                    <button onClick={() => confirm('確定刪除此預約？') && onDelete(a.id)} className="p-1.5 text-stone-400 hover:text-red-500 transition-all" title="刪除"><Trash2 size={14}/></button>
+                                    }} className="p-2 text-stone-400 hover:text-brand-orange transition-all" title="複製"><Copy size={16}/></button>
+                                    <button onClick={() => confirm('確定刪除此預約？') && onDelete(a.id)} className="p-2 text-stone-400 hover:text-red-500 transition-all" title="刪除"><Trash2 size={16}/></button>
                                   </>
                                 )}
                               </div>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             )}
 
@@ -2085,6 +2089,7 @@
         const [user, setUser] = useState(DataService.get(KEYS.SESSION, null));
         const [view, setView] = useState('schedule');
         const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+        const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(true);
         const [syncStatus, setSyncStatus] = useState('connecting'); // connecting, synced, error
         
         const [accounts, setAccounts] = useState(DataService.get(KEYS.ACCOUNTS, []));
@@ -2219,7 +2224,7 @@
               />
             )}
 
-            <aside className={`fixed lg:sticky top-0 inset-y-0 left-0 w-72 bg-stone-900 text-white flex flex-col z-50 shadow-2xl transition-transform duration-300 ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'} print:hidden`}>
+            <aside className={`fixed top-0 inset-y-0 left-0 w-72 bg-stone-900 text-white flex flex-col z-50 shadow-2xl transition-transform duration-300 ${isMobileMenuOpen || !isSidebarCollapsed ? 'translate-x-0' : '-translate-x-full'} print:hidden`}>
               <div className="p-10 border-b border-stone-800 flex items-center justify-between">
                 <div className="flex items-center gap-4">
                   <div className="bg-white p-2.5 rounded-2xl shadow-lg"><JialeLogo /></div>
@@ -2233,16 +2238,16 @@
                     </div>
                   </div>
                 </div>
-                <button onClick={() => setIsMobileMenuOpen(false)} className="lg:hidden p-2 bg-stone-800 rounded-xl hover:bg-stone-700 transition-colors">
+                <button onClick={() => { setIsMobileMenuOpen(false); setIsSidebarCollapsed(true); }} className="p-2 bg-stone-800 rounded-xl hover:bg-stone-700 transition-colors">
                   <X size={20} />
                 </button>
               </div>
               <nav className="p-6 space-y-2 flex-1">
-                <button onClick={() => { setView('schedule'); setIsMobileMenuOpen(false); }} className={`w-full flex items-center gap-4 px-6 py-4 rounded-3xl text-sm font-black transition-all ${view === 'schedule' ? 'bg-brand-orange text-white shadow-lg' : 'text-stone-500 hover:text-brand-yellow'}`}><Calendar size={20}/> 預約排程</button>
+                <button onClick={() => { setView('schedule'); setIsMobileMenuOpen(false); setIsSidebarCollapsed(true); }} className={`w-full flex items-center gap-4 px-6 py-4 rounded-3xl text-sm font-black transition-all ${view === 'schedule' ? 'bg-brand-orange text-white shadow-lg' : 'text-stone-500 hover:text-brand-yellow'}`}><Calendar size={20}/> 預約排程</button>
                 {user.role === 'admin' && (
                   <>
-                    <button onClick={() => { setView('reports'); setIsMobileMenuOpen(false); }} className={`w-full flex items-center gap-4 px-6 py-4 rounded-3xl text-sm font-black transition-all ${view === 'reports' ? 'bg-brand-orange text-white shadow-lg' : 'text-stone-500 hover:text-brand-yellow'}`}><ChartColumn size={20}/> 數據報表</button>
-                    <button onClick={() => { setView('settings'); setIsMobileMenuOpen(false); }} className={`w-full flex items-center gap-4 px-6 py-4 rounded-3xl text-sm font-black transition-all ${view === 'settings' ? 'bg-brand-orange text-white shadow-lg' : 'text-stone-500 hover:text-brand-yellow'}`}><Settings size={20}/> 系統管理</button>
+                    <button onClick={() => { setView('reports'); setIsMobileMenuOpen(false); setIsSidebarCollapsed(true); }} className={`w-full flex items-center gap-4 px-6 py-4 rounded-3xl text-sm font-black transition-all ${view === 'reports' ? 'bg-brand-orange text-white shadow-lg' : 'text-stone-500 hover:text-brand-yellow'}`}><ChartColumn size={20}/> 數據報表</button>
+                    <button onClick={() => { setView('settings'); setIsMobileMenuOpen(false); setIsSidebarCollapsed(true); }} className={`w-full flex items-center gap-4 px-6 py-4 rounded-3xl text-sm font-black transition-all ${view === 'settings' ? 'bg-brand-orange text-white shadow-lg' : 'text-stone-500 hover:text-brand-yellow'}`}><Settings size={20}/> 系統管理</button>
                   </>
                 )}
               </nav>
@@ -2254,7 +2259,29 @@
                 <button onClick={() => { setUser(null); DataService.clear(KEYS.SESSION); }} className="w-full h-12 flex items-center justify-center gap-3 rounded-2xl bg-stone-800/50 text-stone-500 text-xs font-bold hover:bg-red-500/10 hover:text-red-400 transition-all"><LogOut size={16}/> 登出系統</button>
               </div>
             </aside>
-            <main className="flex-1 p-4 lg:p-8 min-h-screen max-w-7xl mx-auto overflow-x-hidden w-full print:p-0 print:m-0 print:max-w-none print:overflow-visible">
+
+            {/* Desktop Toggle Button */}
+            {isSidebarCollapsed && (
+              <button 
+                onClick={() => setIsSidebarCollapsed(false)}
+                className="fixed top-8 left-8 z-40 p-4 bg-stone-900 text-white rounded-2xl shadow-xl hover:bg-brand-orange transition-all hidden lg:flex items-center justify-center group"
+              >
+                <Menu size={24} />
+                <span className="max-w-0 overflow-hidden group-hover:max-w-xs group-hover:ml-2 transition-all duration-500 whitespace-nowrap text-xs font-black uppercase tracking-widest">
+                  展開選單
+                </span>
+              </button>
+            )}
+
+            {/* Desktop Sidebar Overlay for closing */}
+            {!isSidebarCollapsed && (
+              <div 
+                className="fixed inset-0 bg-black/20 z-40 hidden lg:block backdrop-blur-[2px]"
+                onClick={() => setIsSidebarCollapsed(true)}
+              />
+            )}
+
+            <main className="flex-1 p-4 lg:p-8 min-h-screen max-w-full mx-auto overflow-x-hidden w-full print:p-0 print:m-0 print:max-w-none print:overflow-visible">
               {view === 'schedule' && (
                 <ScheduleView 
                   user={user}
