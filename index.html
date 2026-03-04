@@ -336,13 +336,20 @@
           const aptTime = form.time;
           
           // Conflict Detection
-          const conflict = appointments.find(a => 
-            a.id !== (editingApt?.id) &&
-            a.date === aptDate &&
-            a.time === aptTime &&
-            a.status !== 'cancelled' &&
-            (a.therapistId === form.therapistId || a.treatmentRoom === form.treatmentRoom)
-          );
+          const tr = treatments.find(t => t.id === form.treatmentId);
+          const isGroup = form.isGroup || tr?.isGroupTherapy;
+
+          const conflict = appointments.find(a => {
+            if (a.id === (editingApt?.id)) return false;
+            if (a.date !== aptDate || a.time !== aptTime || a.status === 'cancelled' || a.status === 'leave') return false;
+            
+            // 如果是團體治療，且治療師、項目、診間完全一致，則視為同一組，不計為衝突
+            if (isGroup && a.therapistId === form.therapistId && a.treatmentId === form.treatmentId && a.treatmentRoom === form.treatmentRoom) {
+              return false;
+            }
+
+            return (a.therapistId === form.therapistId || a.treatmentRoom === form.treatmentRoom);
+          });
 
           if (conflict) {
             const conflictType = conflict.therapistId === form.therapistId ? '治療師' : '治療室';
