@@ -624,40 +624,40 @@
                                               const config = STATUS_CONFIG[p.status || 'scheduled'];
                                               const isSecondary = (p.status === 'leave' || p.status === 'cancelled' || p.status === 'noshow') && group.patients.some(x => x.status !== 'leave' && x.status !== 'cancelled' && x.status !== 'noshow');
                                               return (
-                                                <div key={p.id} className={`flex flex-col gap-1 p-1.5 rounded border transition-all ${config.bg} ${config.border} ${isSecondary ? 'opacity-40 grayscale scale-[0.98] origin-top' : ''}`}>
+                                                <div key={p.id} className={`group flex flex-col gap-1 p-1.5 rounded border transition-all ${config.bg} ${config.border} ${isSecondary ? 'opacity-40 grayscale scale-[0.98] origin-top' : ''}`}>
                                                   <div className="flex items-center justify-between">
                                                     <span className={`font-bold truncate ${config.text}`}>{p.patientName}</span>
                                                     {renderSmallStatusActions(p)}
                                                   </div>
                                                   {group.patients.length > 1 && (p.treatmentId !== group.treatmentId || p.therapistId !== group.therapistId) && (
-                                                    <div className="text-[8px] font-bold text-stone-400 flex flex-col gap-0.5 border-t border-stone-100 mt-1 pt-1">
+                                                    <div className="text-[8px] font-bold text-stone-400 flex flex-col gap-0.5 border-t border-stone-100 mt-0.5 pt-0.5">
                                                       {p.treatmentId !== group.treatmentId && <span className="truncate">{treatments.find(t => t.id === p.treatmentId)?.name}</span>}
                                                       {p.therapistId !== group.therapistId && <span className="truncate flex items-center gap-0.5"><UsersIcon size={8}/> {therapists.find(t => t.id === p.therapistId)?.name}</span>}
                                                     </div>
                                                   )}
                                                   {p.notes && (
-                                                    <div className={`text-[8px] italic border-t border-stone-100/30 mt-1 pt-1 opacity-70 truncate ${config.text}`} title={p.notes}>
+                                                    <div className={`text-[8px] italic border-t border-stone-100/30 mt-0.5 pt-0.5 opacity-70 truncate ${config.text}`} title={p.notes}>
                                                       {p.notes}
                                                     </div>
                                                   )}
                                                   {user?.role !== 'therapist' && (
-                                                    <div className="flex items-center justify-end gap-1 mt-1">
+                                                    <div className="flex items-center justify-end gap-1 mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                                       <button onClick={(e) => { 
                                                         e.stopPropagation();
                                                         setEditingApt(p); 
                                                         setForm({ ...p, category: treatment?.category || '心理' }); 
                                                         setIsAddOpen(true); 
-                                                      }} className="px-1.5 py-0.5 rounded bg-white text-stone-400 hover:text-brand-orange text-[8px] font-black shadow-sm border border-stone-100">編輯</button>
+                                                      }} className={`p-1 transition-all hover:text-brand-orange ${config.text}`} title="編輯"><Edit3 size={12}/></button>
                                                       <button onClick={(e) => { 
                                                         e.stopPropagation();
                                                         setEditingApt(null); 
                                                         setForm({ ...p, id: undefined, category: treatment?.category || '心理' }); 
                                                         setIsAddOpen(true); 
-                                                      }} className="px-1.5 py-0.5 rounded bg-white text-stone-400 hover:text-brand-orange text-[8px] font-black shadow-sm border border-stone-100">複製</button>
+                                                      }} className={`p-1 transition-all hover:text-brand-orange ${config.text}`} title="複製"><Copy size={12}/></button>
                                                       <button onClick={(e) => { 
                                                         e.stopPropagation();
                                                         confirm('確定刪除此預約？') && onDelete(p.id);
-                                                      }} className="px-1.5 py-0.5 rounded bg-white text-stone-400 hover:text-red-500 text-[8px] font-black shadow-sm border border-stone-100">刪除</button>
+                                                      }} className={`p-1 transition-all hover:text-red-500 ${config.text}`} title="刪除"><Trash2 size={12}/></button>
                                                     </div>
                                                   )}
                                                 </div>
