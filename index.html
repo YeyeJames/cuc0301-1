@@ -417,11 +417,11 @@
 
             {/* Header Toolbar */}
             <div className="flex flex-col gap-4 bg-white p-5 rounded-[2.5rem] border border-stone-100 shadow-sm">
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div className="flex items-center gap-2">
-                  <div className="flex bg-stone-100 p-1.5 rounded-2xl w-fit">
+              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="flex bg-stone-100 p-1 rounded-xl w-fit">
                     {['day', 'day-table', 'week', 'month'].map(m => (
-                      <button key={m} onClick={() => setViewMode(m)} className={`px-5 py-2 rounded-xl text-xs font-black transition-all ${viewMode === m ? 'bg-white shadow-sm text-stone-800' : 'text-stone-400 hover:text-stone-500'}`}>
+                      <button key={m} onClick={() => setViewMode(m)} className={`px-4 py-1.5 rounded-lg text-[11px] font-black transition-all ${viewMode === m ? 'bg-white shadow-sm text-stone-800' : 'text-stone-400 hover:text-stone-500'}`}>
                         {m === 'day' ? '日視圖' : m === 'day-table' ? '日視圖(表格)' : m === 'week' ? '週曆' : '月曆'}
                       </button>
                     ))}
@@ -431,93 +431,92 @@
                       setSelectedDate(format(new Date(), 'yyyy-MM-dd'));
                       setViewMode('day');
                     }}
-                    className="px-5 py-3 bg-brand-orange/10 text-brand-orange hover:bg-brand-orange hover:text-white rounded-2xl text-xs font-black transition-all shadow-sm"
+                    className="px-4 py-2 bg-brand-orange/10 text-brand-orange hover:bg-brand-orange hover:text-white rounded-xl text-[11px] font-black transition-all shadow-sm"
                   >
                     今天
                   </button>
-                </div>
-                <div className="flex items-center gap-4">
-                  <button onClick={() => {
-                    if (viewMode === 'month') {
-                      setSelectedDate(format(startOfMonth(addMonths(currentSelected, -1)), 'yyyy-MM-dd'));
-                    } else {
-                      setSelectedDate(format(addDays(currentSelected, (viewMode === 'day' || viewMode === 'day-table') ? -1 : -7), 'yyyy-MM-dd'));
-                    }
-                  }} className="p-2.5 hover:bg-stone-50 rounded-xl border border-stone-100"><ChevronLeft size={20}/></button>
-                  <div className="text-center min-w-[140px] font-black relative cursor-pointer">
-                    <input type="date" className="absolute inset-0 opacity-0 z-10 cursor-pointer" value={selectedDate} onChange={e => setSelectedDate(e.target.value)} />
-                    <span className={`text-xl tracking-tight ${getDayTextClass(currentSelected)}`}>{format(currentSelected, 'MM/dd')}</span>
-                    <span className={`text-[10px] ml-2 tracking-widest font-black uppercase`}>{format(currentSelected, 'EEE')}</span>
-                  </div>
-                  <button onClick={() => {
-                    if (viewMode === 'month') {
-                      setSelectedDate(format(startOfMonth(addMonths(currentSelected, 1)), 'yyyy-MM-dd'));
-                    } else {
-                      setSelectedDate(format(addDays(currentSelected, (viewMode === 'day' || viewMode === 'day-table') ? 1 : 7), 'yyyy-MM-dd'));
-                    }
-                  }} className="p-2.5 hover:bg-stone-50 rounded-xl border border-stone-100"><ChevronRight size={20}/></button>
-                </div>
-                {user?.role !== 'therapist' && (
-                  <Button onClick={() => { 
-                    setEditingApt(null); 
-                    setForm({ 
-                      patientName: '', 
-                      time: '09:00', 
-                      date: selectedDate,
-                      therapistId: '', 
-                      treatmentId: '', 
-                      notes: '', 
-                      treatmentRoom: '二診',
-                      category: '心理'
-                    }); 
-                    setIsAddOpen(true); 
-                  }} icon={<Plus size={20}/>}>新增預約</Button>
-                )}
-              </div>
 
-              {/* Multi-dimensional Filters */}
-              <div className="flex flex-wrap items-center gap-3 pt-4 border-t border-stone-50">
-                <div className="flex items-center gap-2">
-                  <UsersIcon size={14} className="text-stone-400" />
-                  <select 
-                    className="bg-stone-50 text-[11px] font-black text-stone-600 px-3 py-1.5 rounded-xl outline-none border border-stone-100"
-                    value={filters.therapistId}
-                    onChange={e => setFilters({...filters, therapistId: e.target.value})}
-                  >
-                    <option value="">所有治療師</option>
-                    {therapists.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-                  </select>
+                  <div className="h-6 w-px bg-stone-200 mx-1 hidden md:block"></div>
+
+                  {/* Integrated Filters */}
+                  <div className="flex items-center gap-2">
+                    <select 
+                      className="bg-stone-50 text-[10px] font-black text-stone-600 px-2 py-1.5 rounded-lg outline-none border border-stone-100"
+                      value={filters.therapistId}
+                      onChange={e => setFilters({...filters, therapistId: e.target.value})}
+                    >
+                      <option value="">所有治療師</option>
+                      {therapists.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                    </select>
+                    <select 
+                      className="bg-stone-50 text-[10px] font-black text-stone-600 px-2 py-1.5 rounded-lg outline-none border border-stone-100"
+                      value={filters.category}
+                      onChange={e => setFilters({...filters, category: e.target.value})}
+                    >
+                      <option value="">所有類別</option>
+                      {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                    <select 
+                      className="bg-stone-50 text-[10px] font-black text-stone-600 px-2 py-1.5 rounded-lg outline-none border border-stone-100"
+                      value={filters.status}
+                      onChange={e => setFilters({...filters, status: e.target.value})}
+                    >
+                      <option value="">所有狀態</option>
+                      {Object.entries(STATUS_CONFIG).map(([key, val]) => <option key={key} value={key}>{val.label}</option>)}
+                    </select>
+                    {(filters.therapistId || filters.category || filters.status) && (
+                      <button 
+                        onClick={() => setFilters({ therapistId: '', category: '', status: '' })}
+                        className="text-[9px] font-black text-brand-orange hover:underline"
+                      >
+                        清除
+                      </button>
+                    )}
+                  </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Brain size={14} className="text-stone-400" />
-                  <select 
-                    className="bg-stone-50 text-[11px] font-black text-stone-600 px-3 py-1.5 rounded-xl outline-none border border-stone-100"
-                    value={filters.category}
-                    onChange={e => setFilters({...filters, category: e.target.value})}
-                  >
-                    <option value="">所有類別</option>
-                    {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-                  </select>
+
+                <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-2">
+                    <button onClick={() => {
+                      if (viewMode === 'month') {
+                        setSelectedDate(format(startOfMonth(addMonths(currentSelected, -1)), 'yyyy-MM-dd'));
+                      } else {
+                        setSelectedDate(format(addDays(currentSelected, (viewMode === 'day' || viewMode === 'day-table') ? -1 : -7), 'yyyy-MM-dd'));
+                      }
+                    }} className="p-2 hover:bg-stone-50 rounded-lg border border-stone-100"><ChevronLeft size={16}/></button>
+                    <div className="text-center min-w-[100px] font-black relative cursor-pointer">
+                      <input type="date" className="absolute inset-0 opacity-0 z-10 cursor-pointer" value={selectedDate} onChange={e => setSelectedDate(e.target.value)} />
+                      <span className={`text-lg tracking-tight ${getDayTextClass(currentSelected)}`}>{format(currentSelected, 'MM/dd')}</span>
+                      <span className={`text-[9px] ml-1 tracking-widest font-black uppercase`}>{format(currentSelected, 'EEE')}</span>
+                    </div>
+                    <button onClick={() => {
+                      if (viewMode === 'month') {
+                        setSelectedDate(format(startOfMonth(addMonths(currentSelected, 1)), 'yyyy-MM-dd'));
+                      } else {
+                        setSelectedDate(format(addDays(currentSelected, (viewMode === 'day' || viewMode === 'day-table') ? 1 : 7), 'yyyy-MM-dd'));
+                      }
+                    }} className="p-2 hover:bg-stone-50 rounded-lg border border-stone-100"><ChevronRight size={16}/></button>
+                  </div>
+                  
+                  {user?.role !== 'therapist' && (
+                    <button onClick={() => { 
+                      setEditingApt(null); 
+                      setForm({ 
+                        patientName: '', 
+                        time: '09:00', 
+                        date: selectedDate,
+                        therapistId: '', 
+                        treatmentId: '', 
+                        notes: '', 
+                        treatmentRoom: '二診',
+                        category: '心理'
+                      }); 
+                      setIsAddOpen(true); 
+                    }} className="flex items-center gap-2 px-4 py-2 bg-stone-900 text-white rounded-xl text-xs font-black hover:bg-brand-orange transition-all shadow-sm">
+                      <Plus size={16}/> 新增預約
+                    </button>
+                  )}
                 </div>
-                <div className="flex items-center gap-2">
-                  <Activity size={14} className="text-stone-400" />
-                  <select 
-                    className="bg-stone-50 text-[11px] font-black text-stone-600 px-3 py-1.5 rounded-xl outline-none border border-stone-100"
-                    value={filters.status}
-                    onChange={e => setFilters({...filters, status: e.target.value})}
-                  >
-                    <option value="">所有狀態</option>
-                    {Object.entries(STATUS_CONFIG).map(([key, val]) => <option key={key} value={key}>{val.label}</option>)}
-                  </select>
-                </div>
-                {(filters.therapistId || filters.category || filters.status) && (
-                  <button 
-                    onClick={() => setFilters({ therapistId: '', category: '', status: '' })}
-                    className="text-[10px] font-black text-brand-orange hover:underline ml-auto"
-                  >
-                    清除篩選
-                  </button>
-                )}
               </div>
             </div>
 
@@ -733,13 +732,86 @@
                   const mainStatus = group.patients[0]?.status || 'scheduled';
                   const statusCfg = STATUS_CONFIG[mainStatus] || STATUS_CONFIG['scheduled'];
 
+                  // 如果是個別治療且只有一位個案，顯示單行模式
+                  if (!isGroup && group.patients.length === 1) {
+                    const a = group.patients[0];
+                    const config = STATUS_CONFIG[a.status || 'scheduled'];
+                    const isCancelled = a.status === 'leave' || a.status === 'cancelled' || a.status === 'noshow';
+                    const pTreatment = treatments.find(t => t.id === a.treatmentId);
+                    const pTherapist = therapists.find(t => t.id === a.therapistId);
+
+                    return (
+                      <div key={group.id} className={`group rounded-2xl border shadow-sm overflow-hidden transition-all hover:shadow-md flex items-center gap-4 px-6 py-3 ${config.bg} ${config.border} ${isCancelled ? 'opacity-60 grayscale-[0.2]' : ''}`}>
+                        <div className="flex items-center gap-2 w-24 shrink-0">
+                          <span className="text-[11px] font-black px-2 py-1 bg-stone-800 text-white rounded-lg shadow-sm">
+                            {group.time}
+                          </span>
+                          <span className={`text-[9px] font-black bg-white/50 px-1.5 py-0.5 rounded uppercase tracking-widest ${config.text}`}>
+                            {group.treatmentRoom}
+                          </span>
+                        </div>
+                        
+                        <div className="flex items-center gap-2 w-32 shrink-0">
+                          <UsersIcon size={12} className={config.text} />
+                          <span className={`text-xs font-black truncate ${config.text}`}>{pTherapist?.name}</span>
+                        </div>
+
+                        <div className="flex items-center gap-2 w-40 shrink-0">
+                          <Brain size={12} className={config.text} />
+                          <span className={`text-xs font-black truncate ${config.text}`}>{pTreatment?.name}</span>
+                        </div>
+
+                        <div className="flex items-center gap-3 flex-1 min-w-0">
+                          <div className={`w-7 h-7 shrink-0 rounded-full flex items-center justify-center text-[10px] font-black bg-white border border-stone-100 shadow-sm ${config.text}`}>
+                            {a.patientName.charAt(0)}
+                          </div>
+                          <div className="flex flex-col min-w-0">
+                            <span className={`text-xs font-black cursor-pointer hover:text-brand-orange transition-all truncate ${config.text}`} onClick={() => setShowHistory(a.patientName)}>
+                              {a.patientName}
+                            </span>
+                            {a.notes && <span className={`text-[10px] italic truncate opacity-60 ${config.text}`} title={a.notes}>{a.notes}</span>}
+                          </div>
+                        </div>
+
+                        <div className="w-16 text-right shrink-0">
+                          <span className={`text-xs font-black ${config.text}`}>${a.patientPrice || 0}</span>
+                        </div>
+
+                        <div className="w-24 flex justify-center shrink-0">
+                          {renderSmallStatusActions(a)}
+                        </div>
+
+                        <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity w-24 shrink-0">
+                          {user?.role !== 'therapist' && (
+                            <>
+                              <button onClick={() => { 
+                                setEditingApt(a); 
+                                setForm({ ...a, category: pTreatment?.category || '心理' }); 
+                                setIsAddOpen(true); 
+                              }} className={`p-1.5 transition-all hover:text-brand-orange ${config.text}`} title="編輯"><Edit3 size={14}/></button>
+                              <button onClick={() => { 
+                                setEditingApt(null); 
+                                setForm({ ...a, id: undefined, category: pTreatment?.category || '心理' }); 
+                                setIsAddOpen(true); 
+                              }} className={`p-1.5 transition-all hover:text-brand-orange ${config.text}`} title="複製"><Copy size={14}/></button>
+                              <button onClick={() => confirm('確定刪除此預約？') && onDelete(a.id)} className={`p-1.5 transition-all hover:text-red-500 ${config.text}`} title="刪除"><Trash2 size={14}/></button>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  }
+
                   return (
                     <div key={group.id} className={`rounded-[2rem] border shadow-sm overflow-hidden transition-all hover:shadow-md ${statusCfg.bg} ${statusCfg.border} ${isGroup ? 'ring-1 ring-brand-orange/10' : ''}`}>
                       {/* Shared Header Info */}
                       <div className={`px-6 py-4 flex flex-wrap items-center gap-6 border-b ${isGroup ? 'bg-brand-orange/5 border-brand-orange/10' : 'border-stone-100/50'}`}>
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-2">
                           <span className={`text-xs font-black px-3 py-1.5 rounded-xl shadow-sm ${isGroup ? 'bg-brand-orange text-white' : 'bg-stone-800 text-white'}`}>
                             {group.time}
+                          </span>
+                          <span className={`text-[10px] font-black bg-white/50 px-2 py-1 rounded-lg uppercase tracking-widest ${statusCfg.text}`}>
+                            {group.treatmentRoom}
                           </span>
                         </div>
                         <div className="flex items-center gap-2 min-w-[120px]">
@@ -749,11 +821,6 @@
                         <div className="flex items-center gap-2 flex-1">
                           <Brain size={14} className={statusCfg.text} />
                           <span className={`text-sm font-black ${statusCfg.text}`}>{treatment?.name}</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className={`text-[10px] font-black bg-white/50 px-2 py-1 rounded-lg uppercase tracking-widest ${statusCfg.text}`}>
-                            {group.treatmentRoom}
-                          </span>
                         </div>
                         {isGroup && user?.role !== 'therapist' && (
                           <div className="ml-auto flex items-center gap-2">
