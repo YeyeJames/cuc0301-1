@@ -930,42 +930,77 @@
                     {weekDays.map(day => {
                       const ds = format(day, 'yyyy-MM-dd');
                       const dayApts = getAppointmentsForDate(ds);
+                      
+                      // 週視圖分組邏輯：依時間分組以避免重疊跳動
+                      const timeGroups = {};
+                      dayApts.forEach(apt => {
+                        if (!timeGroups[apt.time]) {
+                          timeGroups[apt.time] = {
+                            time: apt.time,
+                            patients: []
+                          };
+                        }
+                        timeGroups[apt.time].patients.push(apt);
+                      });
+
                       return (
                         <div key={ds} className="border-r border-stone-100 last:border-none relative h-full">
-                          {dayApts.map(a => {
-                            const [h, m] = a.time.split(':').map(Number);
+                          {Object.values(timeGroups).map(group => {
+                            const [h, m] = group.time.split(':').map(Number);
                             const top = ((h - 8) + m / 60) * 256; // 256px per hour
-                            const config = STATUS_CONFIG[a.status || 'scheduled'];
                             const isHovered = hoveredHour === h;
                             
+                            // 排序：將「請假」或「取消」的預約排在後面
+                            const sortedPatients = [...group.patients].sort((a, b) => {
+                              const statusOrder = { 'completed': 0, 'scheduled': 1, 'leave': 2, 'cancelled': 3 };
+                              return (statusOrder[a.status || 'scheduled'] || 1) - (statusOrder[b.status || 'scheduled'] || 1);
+                            });
+
+                            // 主項目資訊（取排序後第一筆）
+                            const mainApt = sortedPatients[0];
+                            const mainConfig = STATUS_CONFIG[mainApt.status || 'scheduled'];
+
                             return (
                               <div 
-                                key={a.id} 
+                                key={group.time} 
                                 onMouseEnter={() => setHoveredHour(h)}
                                 onMouseLeave={() => setHoveredHour(null)}
-                                onClick={() => { 
-                                  if(user?.role !== 'therapist'){ 
-                                    setEditingApt(a); 
-                                    setForm({
-                                      ...a,
-                                      category: treatments.find(t => t.id === a.treatmentId)?.category || '心理'
-                                    }); 
-                                    setIsAddOpen(true); 
-                                  } 
-                                }}
-                                className={`absolute left-1 right-1 p-1.5 rounded-xl border text-[9px] font-black transition-all duration-300 shadow-sm flex flex-col gap-0.5 overflow-hidden hover:z-20 hover:shadow-md ${config.bg} ${config.border} ${user?.role !== 'therapist' ? 'cursor-pointer hover:ring-2 hover:ring-brand-orange' : ''} ${isHovered ? 'scale-[1.05] z-30 shadow-lg ring-4 ring-brand-orange/20 border-brand-orange' : ''}`}
+                                className={`absolute left-1 right-1 p-1.5 rounded-xl border text-[9px] font-black transition-all duration-300 shadow-sm flex flex-col gap-1 overflow-hidden hover:z-20 hover:shadow-md bg-white ${isHovered ? 'scale-[1.05] z-30 shadow-lg ring-4 ring-brand-orange/20 border-brand-orange' : 'border-stone-200'}`}
                                 style={{ top: `${top}px`, minHeight: '60px' }}
-                                title={`${a.time} - ${a.patientName}`}
                               >
-                                <div className="flex items-center justify-between gap-1">
-                                  <span className={`${config.text} opacity-80 leading-none`}>{a.time}</span>
-                                  <span className="text-brand-orange font-bold">${a.patientPrice || 0}</span>
+                                <div className="flex items-center justify-between gap-1 border-b border-stone-50 pb-0.5">
+                                  <span className="text-stone-400 opacity-80 leading-none">{group.time}</span>
+                                  <span className="text-brand-orange font-bold">${sortedPatients.reduce((sum, p) => sum + (p.patientPrice || 0), 0)}</span>
                                 </div>
-                                <span className="text-stone-800 truncate leading-tight font-black">{a.patientName}</span>
-                                <div className="flex flex-col gap-0 pt-0.5 border-t border-stone-100/50 mt-0.5 overflow-hidden">
-                                  <span className="text-stone-500 truncate leading-none">{treatments.find(t => t.id === a.treatmentId)?.name}</span>
-                                  <span className="text-stone-400 truncate leading-none flex items-center gap-0.5"><UsersIcon size={8}/> {therapists.find(t => t.id === a.therapistId)?.name}</span>
-                                  {a.notes && <span className="text-stone-300 truncate italic leading-none">註：{a.notes}</span>}
+
+                                <div className="flex flex-col gap-1">
+                                  {sortedPatients.map(p => {
+                                    const config = STATUS_CONFIG[p.status || 'scheduled'];
+                                    const isSecondary = (p.status === 'leave' || p.status === 'cancelled') && sortedPatients.some(x => x.status !== 'leave' && x.status !== 'cancelled');
+                                    return (
+                                      <div 
+                                        key={p.id}
+                                        onClick={() => { 
+                                          if(user?.role !== 'therapist'){ 
+                                            setEditingApt(p); 
+                                            setForm({
+                                              ...p,
+                                              category: treatments.find(t => t.id === p.treatmentId)?.category || '心理'
+                                            }); 
+                                            setIsAddOpen(true); 
+                                          } 
+                                        }}
+                                        className={`flex flex-col p-1 rounded border transition-all cursor-pointer hover:ring-1 hover:ring-brand-orange ${config.bg} ${config.border} ${isSecondary ? 'opacity-40 grayscale scale-[0.98] origin-top' : ''}`}
+                                      >
+                                        <span className={`truncate leading-tight font-black ${config.text}`}>{p.patientName}</span>
+                                        <div className="flex flex-col gap-0 overflow-hidden mt-0.5">
+                                          <span className="text-stone-500 truncate leading-none">{treatments.find(t => t.id === p.treatmentId)?.name}</span>
+                                          <span className="text-stone-400 truncate leading-none flex items-center gap-0.5"><UsersIcon size={8}/> {therapists.find(t => t.id === p.therapistId)?.name}</span>
+                                          {p.notes && <span className="text-stone-300 truncate italic leading-none">註：{p.notes}</span>}
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
                                 </div>
                               </div>
                             );
