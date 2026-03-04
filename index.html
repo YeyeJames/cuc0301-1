@@ -198,17 +198,20 @@
         const STATUS_CONFIG = {
           'scheduled': { label: '預約中', color: 'amber', bg: 'bg-amber-50', border: 'border-amber-100', text: 'text-amber-600', dot: 'bg-amber-400' },
           'completed': { label: '已報到', color: 'blue', bg: 'bg-blue-50', border: 'border-blue-100', text: 'text-blue-600', dot: 'bg-blue-500' },
+          'noshow': { label: '未到', color: 'red', bg: 'bg-red-50', border: 'border-red-100', text: 'text-red-600', dot: 'bg-red-500' },
           'cancelled': { label: '取消', color: 'stone', bg: 'bg-stone-50', border: 'border-stone-100', text: 'text-stone-500', dot: 'bg-stone-400' },
           'leave': { label: '請假', color: 'rose', bg: 'bg-rose-50', border: 'border-rose-100', text: 'text-rose-600', dot: 'bg-rose-500' }
         };
 
         const selectedDateSummary = useMemo(() => {
           const dayApts = appointments.filter(a => a.date === selectedDate);
-          return {
+          const summary = {
             total: dayApts.length,
-            pending: dayApts.filter(a => a.status === 'scheduled').length,
-            completed: dayApts.filter(a => a.status === 'completed').length
           };
+          Object.keys(STATUS_CONFIG).forEach(status => {
+            summary[status] = dayApts.filter(a => (a.status || 'scheduled') === status).length;
+          });
+          return summary;
         }, [appointments, selectedDate]);
 
         const renderStatusBadge = (status) => {
@@ -312,7 +315,7 @@
           // 排序：將「請假」或「取消」的預約排在後面，已報到/預約中的排在前面
           Object.values(groups).forEach(group => {
             group.patients.sort((a, b) => {
-              const statusOrder = { 'completed': 0, 'scheduled': 1, 'leave': 2, 'cancelled': 3 };
+              const statusOrder = { 'completed': 0, 'scheduled': 1, 'noshow': 2, 'leave': 3, 'cancelled': 4 };
               return (statusOrder[a.status || 'scheduled'] || 1) - (statusOrder[b.status || 'scheduled'] || 1);
             });
             // 更新 group 的主項目資訊為排序後第一筆預約的資訊
@@ -396,34 +399,20 @@
         return (
           <div className="space-y-6">
             {/* Dashboard Widget */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="bg-white p-5 rounded-[2rem] border border-stone-100 shadow-sm flex items-center gap-4">
-                <div className="w-12 h-12 bg-brand-orange/10 text-brand-orange rounded-2xl flex items-center justify-center">
-                  <Calendar size={24} />
-                </div>
-                <div>
-                  <p className="text-[10px] font-black text-stone-400 uppercase tracking-widest">當日總診次</p>
-                  <p className="text-xl font-black text-stone-800">{selectedDateSummary.total}</p>
-                </div>
+            {/* Quick Stats Row */}
+            <div className="bg-white px-6 py-3 rounded-[2rem] border border-stone-100 shadow-sm flex flex-wrap items-center gap-x-8 gap-y-2">
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-black text-stone-400 uppercase tracking-widest">當日總診次</span>
+                <span className="text-sm font-black text-stone-800">{selectedDateSummary.total}</span>
               </div>
-              <div className="bg-white p-5 rounded-[2rem] border border-stone-100 shadow-sm flex items-center gap-4">
-                <div className="w-12 h-12 bg-amber-50 text-amber-500 rounded-2xl flex items-center justify-center">
-                  <Coffee size={24} />
+              <div className="h-4 w-px bg-stone-100 hidden sm:block"></div>
+              {Object.entries(STATUS_CONFIG).map(([key, config]) => (
+                <div key={key} className="flex items-center gap-2">
+                  <div className={`w-2 h-2 rounded-full ${config.dot}`}></div>
+                  <span className="text-[10px] font-black text-stone-400 uppercase tracking-widest">{config.label}</span>
+                  <span className={`text-sm font-black ${config.text}`}>{selectedDateSummary[key] || 0}</span>
                 </div>
-                <div>
-                  <p className="text-[10px] font-black text-stone-400 uppercase tracking-widest">尚未報到</p>
-                  <p className="text-xl font-black text-stone-800">{selectedDateSummary.pending}</p>
-                </div>
-              </div>
-              <div className="bg-white p-5 rounded-[2rem] border border-stone-100 shadow-sm flex items-center gap-4">
-                <div className="w-12 h-12 bg-blue-50 text-blue-500 rounded-2xl flex items-center justify-center">
-                  <CheckCircle size={24} />
-                </div>
-                <div>
-                  <p className="text-[10px] font-black text-stone-400 uppercase tracking-widest">已完成報到</p>
-                  <p className="text-xl font-black text-stone-800">{selectedDateSummary.completed}</p>
-                </div>
-              </div>
+              ))}
             </div>
 
             {/* Header Toolbar */}
@@ -910,7 +899,7 @@
                             
                             // 排序：將「請假」或「取消」的預約排在後面
                             const sortedPatients = [...group.patients].sort((a, b) => {
-                              const statusOrder = { 'completed': 0, 'scheduled': 1, 'leave': 2, 'cancelled': 3 };
+                              const statusOrder = { 'completed': 0, 'scheduled': 1, 'noshow': 2, 'leave': 3, 'cancelled': 4 };
                               return (statusOrder[a.status || 'scheduled'] || 1) - (statusOrder[b.status || 'scheduled'] || 1);
                             });
 
