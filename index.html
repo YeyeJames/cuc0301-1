@@ -139,7 +139,7 @@
       };
 
       // --- Main Views ---
-      const ScheduleView = ({ user, appointments, therapists, treatments, onAdd, onUpdate, onDelete }) => {
+      const ScheduleView = ({ user, appointments, therapists, treatments, onAdd, onUpdate, onDelete, isSidebarCollapsed, setIsSidebarCollapsed }) => {
         const [filters, setFilters] = useState({ therapistId: '', category: '', status: '' });
         const [showHistory, setShowHistory] = useState(null); // patientName
         const [showDayDetail, setShowDayDetail] = useState(null); // date string
@@ -159,7 +159,7 @@
           return filtered;
         }, [appointments, user, filters]);
 
-        const [viewMode, setViewMode] = useState('day');
+        const [viewMode, setViewMode] = useState('month');
         const [selectedDate, setSelectedDate] = useState(format(new Date(), 'yyyy-MM-dd'));
         const [isAddOpen, setIsAddOpen] = useState(false);
         const [isAddingToGroup, setIsAddingToGroup] = useState(false);
@@ -486,6 +486,14 @@
             <div className="flex flex-col gap-4 bg-white p-5 rounded-[2.5rem] border border-stone-100 shadow-sm">
                 <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                   <div className="flex flex-wrap items-center gap-2">
+                    {isSidebarCollapsed && (
+                      <button 
+                        onClick={() => setIsSidebarCollapsed(false)}
+                        className="p-2 bg-stone-900 text-white rounded-xl hover:bg-brand-orange transition-all flex items-center justify-center mr-2"
+                      >
+                        <Menu size={20} />
+                      </button>
+                    )}
                     <div className="flex bg-stone-100 p-1 rounded-xl w-fit">
                       {['day', 'day-table', 'week', 'month'].map(m => (
                         <button key={m} onClick={() => setViewMode(m)} className={`px-4 py-1.5 rounded-lg text-[11px] font-black transition-all ${viewMode === m ? 'bg-white shadow-sm text-stone-800' : 'text-stone-400 hover:text-stone-500'}`}>
@@ -1077,10 +1085,7 @@
                     return (
                       <div 
                         key={ds} 
-                        onClick={() => {
-                          setShowDayDetail(ds);
-                        }} 
-                        className={`min-h-[140px] p-2 rounded-3xl border transition-all cursor-pointer relative flex flex-col items-start justify-start overflow-hidden ${!isCurMonth ? 'bg-stone-50 opacity-20' : getDayStyleClass(day)} hover:shadow-xl hover:-translate-y-1`}
+                        className={`min-h-[140px] p-2 rounded-3xl border transition-all relative flex flex-col items-start justify-start overflow-hidden ${!isCurMonth ? 'bg-stone-50 opacity-20' : getDayStyleClass(day)} hover:shadow-2xl hover:-translate-y-2 hover:border-brand-orange hover:border-4 hover:z-10`}
                       >
                         <div className="flex justify-between items-center w-full mb-1">
                           <span className={`text-sm font-black w-7 h-7 flex items-center justify-center rounded-full ${isToday(day) ? 'bg-brand-orange text-white ring-4 ring-brand-orange/20' : ''}`}>
@@ -1122,11 +1127,11 @@
                                   e.stopPropagation();
                                   setShowAptDetail(a);
                                 }}
-                                className="text-[9px] leading-tight flex items-center gap-1 truncate text-stone-600 font-medium hover:bg-brand-orange/10 rounded px-0.5 transition-colors"
+                                className="text-[10px] leading-tight flex items-center gap-1 truncate text-stone-600 font-medium hover:bg-brand-orange/10 rounded px-0.5 transition-colors"
                               >
                                 <span className={`font-black shrink-0 ${STATUS_CONFIG[a.status || 'scheduled'].text}`}>{a.time}</span>
                                 <span className="truncate font-bold">{a.patientName}</span>
-                                <span className="text-stone-400 shrink-0">({therapist?.name?.charAt(0)})</span>
+                                <span className="text-stone-400 shrink-0 truncate">({therapist?.name} {treatment?.name})</span>
                               </div>
                             );
                           })}
@@ -1136,7 +1141,7 @@
                                 e.stopPropagation();
                                 setShowMoreModal({ date: ds, appointments: dayApts });
                               }}
-                              className="text-[9px] font-black text-stone-300 mt-0.5 hover:text-brand-orange transition-colors"
+                              className="text-[10px] font-black text-stone-300 mt-0.5 hover:text-brand-orange transition-colors"
                             >
                               還有 {dayApts.length - maxVisible} 筆...
                             </div>
@@ -1313,14 +1318,9 @@
                               </button>
                               <button 
                                 onClick={() => {
-                                  const newApt = {
-                                    ...a,
-                                    id: `apt_${Date.now()}`,
-                                    status: 'scheduled',
-                                    isPaid: false,
-                                    paidAmount: 0
-                                  };
-                                  onAdd([newApt]);
+                                  setEditingApt(null);
+                                  setForm({ ...a, id: undefined, category: treatment?.category || '心理' });
+                                  setIsAddOpen(true);
                                   setShowAptDetail(null);
                                 }}
                                 className="w-full px-4 py-2 text-left text-xs font-bold text-stone-600 hover:bg-stone-50 flex items-center gap-2"
@@ -1356,6 +1356,7 @@
               <div className="space-y-1">
                 {showMoreModal?.appointments.sort((a,b) => a.time.localeCompare(b.time)).map(a => {
                   const therapist = therapists.find(t => t.id === a.therapistId);
+                  const treatment = treatments.find(t => t.id === a.treatmentId);
                   return (
                     <div 
                       key={a.id} 
@@ -1363,13 +1364,11 @@
                         setShowAptDetail(a);
                         setShowMoreModal(null);
                       }}
-                      className="text-[10px] leading-tight flex items-center justify-between p-2 hover:bg-brand-orange/5 rounded-xl transition-colors cursor-pointer border border-transparent hover:border-brand-orange/20"
+                      className="text-[10px] leading-tight flex items-center gap-2 p-2 hover:bg-brand-orange/5 rounded-xl transition-colors cursor-pointer border border-transparent hover:border-brand-orange/20"
                     >
-                      <div className="flex items-center gap-2">
-                        <span className="font-black text-brand-orange w-10">{a.time}</span>
-                        <span className="font-bold text-stone-700">{a.patientName}</span>
-                      </div>
-                      <span className="text-stone-400 font-bold">({therapist?.name?.charAt(0)})</span>
+                      <span className="font-black text-brand-orange w-10 shrink-0">{a.time}</span>
+                      <span className="font-bold text-stone-700 shrink-0">{a.patientName}</span>
+                      <span className="text-stone-400 font-bold truncate">({therapist?.name} {treatment?.name})</span>
                     </div>
                   );
                 })}
@@ -2615,25 +2614,13 @@
             </aside>
 
             {/* Desktop Toggle Button */}
-            {isSidebarCollapsed && (
-              <button 
-                onClick={() => setIsSidebarCollapsed(false)}
-                className="fixed top-8 left-8 z-40 p-4 bg-stone-900 text-white rounded-2xl shadow-xl hover:bg-brand-orange transition-all hidden lg:flex items-center justify-center group"
-              >
-                <Menu size={24} />
-                <span className="max-w-0 overflow-hidden group-hover:max-w-xs group-hover:ml-2 transition-all duration-500 whitespace-nowrap text-xs font-black uppercase tracking-widest">
-                  展開選單
-                </span>
-              </button>
-            )}
-
-            {/* Desktop Sidebar Overlay for closing */}
-            {!isSidebarCollapsed && (
-              <div 
-                className="fixed inset-0 bg-black/20 z-40 hidden lg:block backdrop-blur-[2px]"
-                onClick={() => setIsSidebarCollapsed(true)}
-              />
-            )}
+              {/* Desktop Sidebar Overlay for closing */}
+              {!isSidebarCollapsed && (
+                <div 
+                  className="fixed inset-0 bg-black/20 z-40 hidden lg:block backdrop-blur-[2px]"
+                  onClick={() => setIsSidebarCollapsed(true)}
+                />
+              )}
 
             <main className="flex-1 p-4 lg:p-8 min-h-screen max-w-full mx-auto overflow-x-hidden w-full print:p-0 print:m-0 print:max-w-none print:overflow-visible">
               {view === 'schedule' && (
@@ -2642,6 +2629,8 @@
                   appointments={appointments} 
                   therapists={therapists} 
                   treatments={treatments} 
+                  isSidebarCollapsed={isSidebarCollapsed}
+                  setIsSidebarCollapsed={setIsSidebarCollapsed}
                   onAdd={x => { 
                     if (Array.isArray(x)) {
                       setAppointments(prev => [...prev, ...x]);
