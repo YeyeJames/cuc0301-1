@@ -270,6 +270,27 @@
           
           return (
             <div className="flex items-center gap-0.5 md:gap-1 relative">
+              <select 
+                value={currentStatus} 
+                onChange={(e) => {
+                  const newStatus = e.target.value;
+                  const updates = { status: newStatus };
+                  if (newStatus === 'completed') {
+                    updates.isPaid = true;
+                    updates.paidAmount = a.patientPrice || treatment?.patientPrice || 0;
+                  } else {
+                    updates.isPaid = false;
+                    updates.paidAmount = 0;
+                  }
+                  onUpdate(a.id, updates);
+                }}
+                className={`px-0.5 md:px-1 py-0 md:py-0.5 rounded text-[5px] md:text-[9px] font-black transition-all outline-none appearance-none cursor-pointer border ${config.bg} ${config.border} ${config.text}`}
+              >
+                {Object.entries(STATUS_CONFIG).map(([key, val]) => (
+                  <option key={key} value={key} className="text-stone-800 bg-white">{val.label}</option>
+                ))}
+              </select>
+
               {/* More Actions Dropdown */}
               {user?.role !== 'therapist' && (
                 <div className="relative">
@@ -315,27 +336,6 @@
                   )}
                 </div>
               )}
-
-              <select 
-                value={currentStatus} 
-                onChange={(e) => {
-                  const newStatus = e.target.value;
-                  const updates = { status: newStatus };
-                  if (newStatus === 'completed') {
-                    updates.isPaid = true;
-                    updates.paidAmount = a.patientPrice || treatment?.patientPrice || 0;
-                  } else {
-                    updates.isPaid = false;
-                    updates.paidAmount = 0;
-                  }
-                  onUpdate(a.id, updates);
-                }}
-                className={`px-0.5 md:px-1 py-0 md:py-0.5 rounded text-[5px] md:text-[9px] font-black transition-all outline-none appearance-none cursor-pointer border ${config.bg} ${config.border} ${config.text}`}
-              >
-                {Object.entries(STATUS_CONFIG).map(([key, val]) => (
-                  <option key={key} value={key} className="text-stone-800 bg-white">{val.label}</option>
-                ))}
-              </select>
             </div>
           );
         };
@@ -667,7 +667,7 @@
                                           key={group.id}
                                           onMouseEnter={() => setHoveredHour(hour)}
                                           onMouseLeave={() => setHoveredHour(null)}
-                                          className={`p-1 md:p-2 rounded-lg md:rounded-xl border text-[6px] md:text-[10px] transition-all duration-300 shadow-sm flex flex-col gap-0.5 md:gap-1 overflow-hidden bg-white ${isGroup ? 'border-brand-orange/40 ring-1 md:ring-2 ring-brand-orange/5' : 'border-stone-200'} ${isHovered ? 'border-brand-orange ring-2 md:ring-4 ring-brand-orange/10 shadow-md' : ''}`}
+                                          className={`p-1 md:p-2 rounded-lg md:rounded-xl border text-[6px] md:text-[10px] transition-all duration-300 shadow-sm flex flex-col gap-0.5 md:gap-1 bg-white ${isGroup ? 'border-brand-orange/40 ring-1 md:ring-2 ring-brand-orange/5' : 'border-stone-200'} ${isHovered ? 'border-brand-orange ring-2 md:ring-4 ring-brand-orange/10 shadow-md' : ''}`}
                                         >
                                           <div className="flex justify-between items-start">
                                             <div className="flex flex-col">
