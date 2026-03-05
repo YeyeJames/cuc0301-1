@@ -144,7 +144,7 @@
         const [showHistory, setShowHistory] = useState(null); // patientName
         const [showDayDetail, setShowDayDetail] = useState(null); // date string
         const [showAptDetail, setShowAptDetail] = useState(null); // appointment object
-        const [showMoreModal, setShowMoreModal] = useState(null); // { date: string, appointments: [] }
+        const [expandedDays, setExpandedDays] = useState({}); // { [dateStr]: boolean }
         const [groupCopyModal, setGroupCopyModal] = useState(null);
         const [groupCopyForm, setGroupCopyForm] = useState({ startDate: '', time: '', weeks: 1 });
 
@@ -209,22 +209,23 @@
 
         const visiblePeriodSummary = useMemo(() => {
           let periodApts = [];
+          // Use filteredAppointments so stats respect therapist/category filters
+          const sourceApts = filteredAppointments; 
+          
           if (viewMode === 'day' || viewMode === 'day-table') {
-            periodApts = appointments.filter(a => a.date === selectedDate);
+            periodApts = sourceApts.filter(a => a.date === selectedDate);
           } else if (viewMode === 'week') {
             const start = startOfWeek(currentSelected);
             const end = endOfWeek(currentSelected);
-            periodApts = appointments.filter(a => {
-              const d = new Date(a.date);
-              return d >= start && d <= end;
-            });
+            const startStr = format(start, 'yyyy-MM-dd');
+            const endStr = format(end, 'yyyy-MM-dd');
+            periodApts = sourceApts.filter(a => a.date >= startStr && a.date <= endStr);
           } else if (viewMode === 'month') {
             const start = startOfMonth(currentSelected);
             const end = endOfMonth(currentSelected);
-            periodApts = appointments.filter(a => {
-              const d = new Date(a.date);
-              return d >= start && d <= end;
-            });
+            const startStr = format(start, 'yyyy-MM-dd');
+            const endStr = format(end, 'yyyy-MM-dd');
+            periodApts = sourceApts.filter(a => a.date >= startStr && a.date <= endStr);
           }
           
           const summary = {
@@ -235,7 +236,7 @@
             summary[status] = periodApts.filter(a => (a.status || 'scheduled') === status).length;
           });
           return summary;
-        }, [appointments, selectedDate, viewMode, currentSelected]);
+        }, [filteredAppointments, selectedDate, viewMode, currentSelected]);
 
         const renderStatusBadge = (status) => {
           const config = STATUS_CONFIG[status] || STATUS_CONFIG['scheduled'];
@@ -293,7 +294,9 @@
             <div className="flex items-center gap-0.5 md:gap-1 relative">
               <select 
                 value={currentStatus} 
+                onClick={(e) => e.stopPropagation()}
                 onChange={(e) => {
+                  e.stopPropagation();
                   const newStatus = e.target.value;
                   const updates = { status: newStatus };
                   if (newStatus === 'completed') {
@@ -708,7 +711,11 @@
                                               const config = STATUS_CONFIG[p.status || 'scheduled'];
                                               const isSecondary = (p.status === 'leave' || p.status === 'cancelled' || p.status === 'noshow') && group.patients.some(x => x.status !== 'leave' && x.status !== 'cancelled' && x.status !== 'noshow');
                                               return (
-                                                <div key={p.id} className={`group flex flex-col gap-0.25 md:gap-0.5 p-0.5 md:p-1.5 rounded border transition-all ${config.bg} ${config.border} ${isSecondary ? 'opacity-40 grayscale scale-[0.98] origin-top' : ''}`}>
+                                                <div 
+                                                  key={p.id} 
+                                                  onClick={() => setShowAptDetail(p)}
+                                                  className={`group flex flex-col gap-0.25 md:gap-0.5 p-0.5 md:p-1.5 rounded border transition-all cursor-pointer hover:ring-1 hover:ring-brand-orange ${config.bg} ${config.border} ${isSecondary ? 'opacity-40 grayscale scale-[0.98] origin-top' : ''}`}
+                                                >
                                                   <div className="flex items-center justify-between gap-0.5">
                                                     <span className={`font-bold truncate ${config.text}`}>{p.patientName}</span>
                                                     {renderSmallStatusActions(p)}
@@ -852,17 +859,22 @@
                         <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity w-24 shrink-0">
                           {user?.role !== 'therapist' && (
                             <>
-                              <button onClick={() => { 
+                              <button onClick={(e) => { 
+                                e.stopPropagation();
                                 setEditingApt(a); 
                                 setForm({ ...a, category: pTreatment?.category || '心理' }); 
                                 setIsAddOpen(true); 
                               }} className={`p-1.5 transition-all hover:text-brand-orange ${config.text}`} title="編輯"><Edit3 size={14}/></button>
-                              <button onClick={() => { 
+                              <button onClick={(e) => { 
+                                e.stopPropagation();
                                 setEditingApt(null); 
                                 setForm({ ...a, id: undefined, category: pTreatment?.category || '心理' }); 
                                 setIsAddOpen(true); 
                               }} className={`p-1.5 transition-all hover:text-brand-orange ${config.text}`} title="複製"><Copy size={14}/></button>
-                              <button onClick={() => confirm('確定刪除此預約？') && onDelete(a.id)} className={`p-1.5 transition-all hover:text-red-500 ${config.text}`} title="刪除"><Trash2 size={14}/></button>
+                              <button onClick={(e) => {
+                                e.stopPropagation();
+                                if (confirm('確定刪除此預約？')) onDelete(a.id);
+                              }} className={`p-1.5 transition-all hover:text-red-500 ${config.text}`} title="刪除"><Trash2 size={14}/></button>
                             </>
                           )}
                         </div>
@@ -915,12 +927,16 @@
                           const pTherapist = therapists.find(t => t.id === a.therapistId);
                           
                           return (
-                            <div key={a.id} className={`group px-6 py-4 flex items-center gap-6 hover:bg-white/20 transition-colors ${isCancelled ? 'opacity-60 grayscale-[0.2]' : ''}`}>
+                            <div 
+                              key={a.id} 
+                              onClick={() => setShowAptDetail(a)}
+                              className={`group px-6 py-4 flex items-center gap-6 hover:bg-white/20 transition-colors cursor-pointer ${isCancelled ? 'opacity-60 grayscale-[0.2]' : ''}`}
+                            >
                               <div className="flex items-center gap-3 w-48">
                                 <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-black bg-white border border-stone-100 shadow-sm ${config.text}`}>
                                   {a.patientName.charAt(0)}
                                 </div>
-                                <span className={`text-sm font-black cursor-pointer hover:text-brand-orange transition-all ${config.text}`} onClick={() => setShowHistory(a.patientName)}>
+                                <span className={`text-sm font-black cursor-pointer hover:text-brand-orange transition-all ${config.text}`} onClick={(e) => { e.stopPropagation(); setShowHistory(a.patientName); }}>
                                   {a.patientName}
                                 </span>
                               </div>
@@ -947,17 +963,22 @@
                               <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity w-32">
                                 {user?.role !== 'therapist' && (
                                   <>
-                                    <button onClick={() => { 
+                                    <button onClick={(e) => { 
+                                      e.stopPropagation();
                                       setEditingApt(a); 
                                       setForm({ ...a, category: pTreatment?.category || '心理' }); 
                                       setIsAddOpen(true); 
                                     }} className={`p-2 transition-all hover:text-brand-orange ${config.text}`} title="編輯"><Edit3 size={16}/></button>
-                                    <button onClick={() => { 
+                                    <button onClick={(e) => { 
+                                      e.stopPropagation();
                                       setEditingApt(null); 
                                       setForm({ ...a, id: undefined, category: pTreatment?.category || '心理' }); 
                                       setIsAddOpen(true); 
                                     }} className={`p-2 transition-all hover:text-brand-orange ${config.text}`} title="複製"><Copy size={16}/></button>
-                                    <button onClick={() => confirm('確定刪除此預約？') && onDelete(a.id)} className={`p-2 transition-all hover:text-red-500 ${config.text}`} title="刪除"><Trash2 size={16}/></button>
+                                    <button onClick={(e) => {
+                                      e.stopPropagation();
+                                      if (confirm('確定刪除此預約？')) onDelete(a.id);
+                                    }} className={`p-2 transition-all hover:text-red-500 ${config.text}`} title="刪除"><Trash2 size={16}/></button>
                                   </>
                                 )}
                               </div>
@@ -1041,6 +1062,7 @@
                                       return (
                                         <div 
                                           key={p.id}
+                                          onClick={() => setShowAptDetail(p)}
                                           className={`group/apt flex flex-col p-0.25 md:p-1.5 rounded-sm md:rounded border transition-all cursor-pointer hover:ring-1 hover:ring-brand-orange ${config.bg} ${config.border}`}
                                         >
                                           <div className="flex items-center justify-between gap-0.25 md:gap-1">
@@ -1070,22 +1092,24 @@
 
             {viewMode === 'month' && (
               <div className="bg-white p-6 rounded-[2.5rem] border border-stone-100 shadow-sm overflow-hidden">
-                <div className="grid grid-cols-7 gap-2 mb-4 text-center text-[10px] font-black text-stone-400 uppercase tracking-widest">
+                <div className="grid gap-2 mb-4 text-center text-[10px] font-black text-stone-400 uppercase tracking-widest" style={{ gridTemplateColumns: '0.25fr repeat(6, 1fr)' }}>
                   {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((d, i) => (
                     <div key={d} className={i === 0 ? 'text-red-400' : i === 6 ? 'text-blue-400' : ''}>{d}</div>
                   ))}
                 </div>
-                <div className="grid grid-cols-7 gap-2 md:gap-3">
+                <div className="grid gap-2 md:gap-3" style={{ gridTemplateColumns: '0.25fr repeat(6, 1fr)' }}>
                   {monthDays.map(day => {
                     const ds = format(day, 'yyyy-MM-dd');
                     const dayApts = getAppointmentsForDate(ds).sort((a,b) => a.time.localeCompare(b.time));
                     const isCurMonth = isSameMonth(day, currentSelected);
+                    const isExpanded = expandedDays[ds];
                     const maxVisible = 6;
+                    const visibleApts = isExpanded ? dayApts : dayApts.slice(0, maxVisible);
                     
                     return (
                       <div 
                         key={ds} 
-                        className={`min-h-[140px] p-2 rounded-3xl border transition-all relative flex flex-col items-start justify-start overflow-hidden ${!isCurMonth ? 'bg-stone-50 opacity-20' : getDayStyleClass(day)} hover:shadow-2xl hover:-translate-y-2 hover:border-brand-orange hover:border-4 hover:z-10`}
+                        className={`min-h-[140px] p-2 rounded-3xl border transition-all relative flex flex-col items-start justify-start ${!isCurMonth ? 'bg-stone-50 opacity-20' : getDayStyleClass(day)} hover:shadow-2xl hover:-translate-y-2 hover:border-brand-orange hover:border-4 hover:z-10 ${isExpanded ? 'h-auto overflow-visible' : 'overflow-hidden'}`}
                       >
                         <div className="flex justify-between items-center w-full mb-1">
                           <span className={`text-sm font-black w-7 h-7 flex items-center justify-center rounded-full ${isToday(day) ? 'bg-brand-orange text-white ring-4 ring-brand-orange/20' : ''}`}>
@@ -1108,7 +1132,7 @@
                                 });
                                 setIsAddOpen(true);
                               }}
-                              className="p-1 hover:bg-black/5 rounded-lg text-brand-orange transition-colors"
+                              className="p-1 hover:bg-black/5 rounded-lg text-brand-orange transition-colors cursor-pointer"
                               title="新增預約"
                             >
                               <Plus size={14} />
@@ -1116,8 +1140,8 @@
                           )}
                         </div>
                         
-                        <div className="w-full space-y-0.5 overflow-hidden">
-                          {dayApts.slice(0, maxVisible).map(a => {
+                        <div className="w-full space-y-0.5">
+                          {visibleApts.map(a => {
                             const therapist = therapists.find(t => t.id === a.therapistId);
                             const treatment = treatments.find(t => t.id === a.treatmentId);
                             return (
@@ -1127,7 +1151,7 @@
                                   e.stopPropagation();
                                   setShowAptDetail(a);
                                 }}
-                                className="text-[10px] leading-tight flex items-center gap-1 truncate text-stone-600 font-medium hover:bg-brand-orange/10 rounded px-0.5 transition-colors"
+                                className="text-[10px] leading-tight flex items-center gap-1 truncate text-stone-600 font-medium hover:bg-brand-orange/10 rounded px-0.5 transition-colors cursor-pointer"
                               >
                                 <span className={`font-black shrink-0 ${STATUS_CONFIG[a.status || 'scheduled'].text}`}>{a.time}</span>
                                 <span className="truncate font-bold">{a.patientName}</span>
@@ -1135,15 +1159,26 @@
                               </div>
                             );
                           })}
-                          {dayApts.length > maxVisible && (
+                          {dayApts.length > maxVisible && !isExpanded && (
                             <div 
                               onClick={(e) => {
                                 e.stopPropagation();
-                                setShowMoreModal({ date: ds, appointments: dayApts });
+                                setExpandedDays(prev => ({ ...prev, [ds]: true }));
                               }}
-                              className="text-[10px] font-black text-stone-300 mt-0.5 hover:text-brand-orange transition-colors"
+                              className="text-[10px] font-black text-stone-300 mt-0.5 hover:text-brand-orange transition-colors cursor-pointer"
                             >
                               還有 {dayApts.length - maxVisible} 筆...
+                            </div>
+                          )}
+                          {isExpanded && dayApts.length > maxVisible && (
+                            <div 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setExpandedDays(prev => ({ ...prev, [ds]: false }));
+                              }}
+                              className="text-[10px] font-black text-stone-300 mt-1 hover:text-brand-orange transition-colors cursor-pointer border-t border-stone-100 pt-1"
+                            >
+                              收起
                             </div>
                           )}
                         </div>
@@ -1230,149 +1265,124 @@
                 
                 return (
                   <div className="space-y-4">
-                    <div className="bg-stone-50 p-4 rounded-2xl border border-stone-100 space-y-3">
+                    <div className="bg-stone-50 p-5 rounded-[2rem] border border-stone-100 space-y-4 shadow-sm">
+                      {/* 第一行: 時間/治療室/個案 [日期小字靠右排] */}
                       <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <span className="text-xs font-black bg-stone-900 text-white px-2 py-1 rounded-lg shadow-sm">{a.time}</span>
+                          <span className="text-[10px] font-black text-stone-500 bg-stone-200/50 px-2 py-1 rounded-lg uppercase tracking-widest">{a.treatmentRoom}</span>
+                          <span className="text-xl font-black text-stone-800 tracking-tight">{a.patientName}</span>
+                        </div>
+                        <span className="text-[10px] font-bold text-stone-400 tracking-widest">{a.date}</span>
+                      </div>
+                      
+                      {/* 第二行: 治療師 / 治療項目 / 收費 */}
+                      <div className="flex flex-wrap items-center gap-4 py-3 border-y border-stone-100/50">
                         <div className="flex items-center gap-2">
-                          <span className="text-xs font-black bg-stone-900 text-white px-2 py-1 rounded-lg">{a.time}</span>
-                          <span className="text-lg font-black text-stone-800">{a.patientName}</span>
+                          <UsersIcon size={14} className="text-stone-400" />
+                          <span className="text-sm font-black text-stone-600">{therapist?.name}</span>
                         </div>
-                        <span className="text-[10px] font-black text-stone-400 uppercase tracking-widest">{a.date}</span>
-                      </div>
-                      
-                      <div className="grid grid-cols-1 gap-2 text-sm">
-                        <div className="flex items-center justify-between py-1 border-b border-stone-100/50">
-                          <span className="text-[10px] font-black text-stone-400 uppercase tracking-widest">治療項目</span>
-                          <span className="font-bold text-stone-600">{treatment?.name}</span>
+                        <div className="flex items-center gap-2">
+                          <Brain size={14} className="text-stone-400" />
+                          <span className="text-sm font-black text-stone-600">{treatment?.name}</span>
                         </div>
-                        <div className="flex items-center justify-between py-1 border-b border-stone-100/50">
-                          <span className="text-[10px] font-black text-stone-400 uppercase tracking-widest">治療師</span>
-                          <span className="font-bold text-stone-600">{therapist?.name}</span>
-                        </div>
-                        <div className="flex items-center justify-between py-1 border-b border-stone-100/50">
-                          <span className="text-[10px] font-black text-stone-400 uppercase tracking-widest">診間</span>
-                          <span className="font-bold text-stone-600">{a.treatmentRoom}</span>
-                        </div>
-                        <div className="flex items-center justify-between py-1 border-b border-stone-100/50">
-                          <span className="text-[10px] font-black text-stone-400 uppercase tracking-widest">類別</span>
-                          <span className="font-bold text-stone-600">{a.category}</span>
+                        <div className="flex items-center gap-2 ml-auto">
+                          <Banknote size={14} className="text-emerald-500" />
+                          <span className="text-sm font-black text-emerald-600">${a.patientPrice || treatment?.patientPrice || 0}</span>
                         </div>
                       </div>
                       
+                      {/* 第三行: 備註 */}
                       {a.notes && (
-                        <div className="pt-1">
-                          <span className="text-[10px] font-black text-stone-400 uppercase tracking-widest block mb-1">備註</span>
-                          <p className="text-xs italic text-stone-500 bg-white p-2 rounded-lg border border-stone-100">{a.notes}</p>
+                        <div className="bg-white p-4 rounded-2xl border border-stone-100 shadow-inner">
+                          <p className="text-xs italic text-stone-500 leading-relaxed">{a.notes}</p>
                         </div>
                       )}
                     </div>
 
-                      <div className="flex gap-2">
-                        <div className="flex-1">
-                          <label className="text-[10px] font-black text-stone-400 uppercase tracking-widest ml-2">更改報到狀態</label>
-                          <select 
-                            value={a.status || 'scheduled'} 
-                            onChange={(e) => {
-                              const newStatus = e.target.value;
-                              const updates = { status: newStatus };
-                              if (newStatus === 'completed') {
-                                updates.isPaid = true;
-                                updates.paidAmount = a.patientPrice || treatment?.patientPrice || 0;
-                              } else {
-                                updates.isPaid = false;
-                                updates.paidAmount = 0;
-                              }
-                              onUpdate(a.id, updates);
-                              setShowAptDetail({...a, ...updates});
-                            }}
-                            className={`w-full h-12 px-4 rounded-xl text-sm font-black transition-all shadow-sm outline-none appearance-none cursor-pointer border ${config.bg} ${config.border} ${config.text}`}
-                          >
-                            {Object.entries(STATUS_CONFIG).map(([key, val]) => (
-                              <option key={key} value={key} className="text-stone-800 bg-white">{val.label}</option>
-                            ))}
-                          </select>
-                        </div>
-
-                        <div className="relative flex items-end">
-                          <button 
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setActiveMenuId(activeMenuId === `detail_${a.id}` ? null : `detail_${a.id}`);
-                            }}
-                            className="h-12 w-12 rounded-xl bg-stone-100 text-stone-400 flex items-center justify-center hover:bg-stone-200 transition-all border border-stone-200"
-                          >
-                            <MoreVertical size={20} />
-                          </button>
-                          
-                          {activeMenuId === `detail_${a.id}` && (
-                            <div className="absolute bottom-full right-0 mb-2 w-32 bg-white rounded-xl shadow-xl border border-stone-100 py-1 z-50 overflow-hidden animate-in fade-in slide-in-from-bottom-2">
-                              <button 
-                                onClick={() => {
-                                  setEditingApt(a);
-                                  setForm({ ...a, category: treatment?.category || '心理' });
-                                  setIsAddOpen(true);
-                                  setShowAptDetail(null);
-                                }}
-                                className="w-full px-4 py-2 text-left text-xs font-bold text-stone-600 hover:bg-stone-50 flex items-center gap-2"
-                              >
-                                <Edit3 size={14} /> 編輯
-                              </button>
-                              <button 
-                                onClick={() => {
-                                  setEditingApt(null);
-                                  setForm({ ...a, id: undefined, category: treatment?.category || '心理' });
-                                  setIsAddOpen(true);
-                                  setShowAptDetail(null);
-                                }}
-                                className="w-full px-4 py-2 text-left text-xs font-bold text-stone-600 hover:bg-stone-50 flex items-center gap-2"
-                              >
-                                <Copy size={14} /> 複製
-                              </button>
-                              <button 
-                                onClick={() => {
-                                  if (confirm('確定要刪除此預約嗎？')) {
-                                    onDelete(a.id);
-                                    setShowAptDetail(null);
-                                  }
-                                }}
-                                className="w-full px-4 py-2 text-left text-xs font-bold text-red-600 hover:bg-red-50 flex items-center gap-2"
-                              >
-                                <Trash2 size={14} /> 刪除
-                              </button>
-                            </div>
-                          )}
+                    {/* 第四行: 更改狀態 / 三個小點 */}
+                    <div className="flex gap-3 items-center">
+                      <div className="flex-1 relative">
+                        <select 
+                          value={a.status || 'scheduled'} 
+                          onChange={(e) => {
+                            const newStatus = e.target.value;
+                            const updates = { status: newStatus };
+                            if (newStatus === 'completed') {
+                              updates.isPaid = true;
+                              updates.paidAmount = a.patientPrice || treatment?.patientPrice || 0;
+                            } else {
+                              updates.isPaid = false;
+                              updates.paidAmount = 0;
+                            }
+                            onUpdate(a.id, updates);
+                            setShowAptDetail({...a, ...updates});
+                          }}
+                          className={`w-full h-14 px-5 rounded-2xl text-sm font-black transition-all shadow-sm outline-none appearance-none cursor-pointer border ${config.bg} ${config.border} ${config.text}`}
+                        >
+                          {Object.entries(STATUS_CONFIG).map(([key, val]) => (
+                            <option key={key} value={key} className="text-stone-800 bg-white">{val.label}</option>
+                          ))}
+                        </select>
+                        <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none opacity-50">
+                          <ChevronRight size={16} className="rotate-90" />
                         </div>
                       </div>
+
+                      <div className="relative">
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setActiveMenuId(activeMenuId === `detail_${a.id}` ? null : `detail_${a.id}`);
+                          }}
+                          className="h-14 w-14 rounded-2xl bg-stone-100 text-stone-400 flex items-center justify-center hover:bg-stone-200 transition-all border border-stone-200 shadow-sm"
+                        >
+                          <MoreVertical size={24} />
+                        </button>
+                        
+                        {activeMenuId === `detail_${a.id}` && (
+                          <div className="absolute bottom-full right-0 mb-3 w-40 bg-white rounded-2xl shadow-2xl border border-stone-100 py-2 z-50 overflow-hidden animate-in fade-in slide-in-from-bottom-4">
+                            <button 
+                              onClick={() => {
+                                setEditingApt(a);
+                                setForm({ ...a, category: treatment?.category || '心理' });
+                                setIsAddOpen(true);
+                                setShowAptDetail(null);
+                              }}
+                              className="w-full px-5 py-3 text-left text-xs font-black text-stone-600 hover:bg-stone-50 flex items-center gap-3 transition-colors"
+                            >
+                              <Edit3 size={16} className="text-blue-500" /> 編輯預約
+                            </button>
+                            <button 
+                              onClick={() => {
+                                setEditingApt(null);
+                                setForm({ ...a, id: undefined, category: treatment?.category || '心理' });
+                                setIsAddOpen(true);
+                                setShowAptDetail(null);
+                              }}
+                              className="w-full px-5 py-3 text-left text-xs font-black text-stone-600 hover:bg-stone-50 flex items-center gap-3 transition-colors"
+                            >
+                              <Copy size={16} className="text-emerald-500" /> 複製預約
+                            </button>
+                            <div className="h-px bg-stone-50 mx-2 my-1"></div>
+                            <button 
+                              onClick={() => {
+                                if (confirm('確定要刪除此預約嗎？')) {
+                                  onDelete(a.id);
+                                  setShowAptDetail(null);
+                                }
+                              }}
+                              className="w-full px-5 py-3 text-left text-xs font-black text-red-600 hover:bg-red-50 flex items-center gap-3 transition-colors"
+                            >
+                              <Trash2 size={16} /> 刪除預約
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 );
               })()}
-            </Modal>
-
-            {/* More Modal (Simplified List) */}
-            <Modal 
-              isOpen={!!showMoreModal} 
-              onClose={() => setShowMoreModal(null)} 
-              title={`${showMoreModal?.date} 更多預約`}
-            >
-              <div className="space-y-1">
-                {showMoreModal?.appointments.sort((a,b) => a.time.localeCompare(b.time)).map(a => {
-                  const therapist = therapists.find(t => t.id === a.therapistId);
-                  const treatment = treatments.find(t => t.id === a.treatmentId);
-                  return (
-                    <div 
-                      key={a.id} 
-                      onClick={() => {
-                        setShowAptDetail(a);
-                        setShowMoreModal(null);
-                      }}
-                      className="text-[10px] leading-tight flex items-center gap-2 p-2 hover:bg-brand-orange/5 rounded-xl transition-colors cursor-pointer border border-transparent hover:border-brand-orange/20"
-                    >
-                      <span className="font-black text-brand-orange w-10 shrink-0">{a.time}</span>
-                      <span className="font-bold text-stone-700 shrink-0">{a.patientName}</span>
-                      <span className="text-stone-400 font-bold truncate">({therapist?.name} {treatment?.name})</span>
-                    </div>
-                  );
-                })}
-              </div>
             </Modal>
 
             {/* Add/Edit Modal */}
