@@ -75,7 +75,7 @@
       import { 
         Plus, ChevronLeft, ChevronRight, Calendar, CheckCircle, Banknote, Trash2, RotateCcw, 
         X, Settings, LogOut, User as UserIcon, ChartColumn, Download, Upload, Brain, Activity, Zap, Briefcase, FileText, Coffee, Users as UsersIcon, UserPlus, Users, Edit3, Menu, Info, CircleUser,
-        Copy
+        Copy, MoreVertical
       } from 'lucide-react';
 
       // --- Data Service ---
@@ -162,6 +162,7 @@
         const [isAddingToGroup, setIsAddingToGroup] = useState(false);
         const [editingApt, setEditingApt] = useState(null);
         const [hoveredHour, setHoveredHour] = useState(null);
+        const [activeMenuId, setActiveMenuId] = useState(null);
         
         const [form, setForm] = useState({ 
           patientName: '', time: '09:00', date: '', therapistId: '', treatmentId: '', 
@@ -207,7 +208,7 @@
           const dayApts = appointments.filter(a => a.date === selectedDate);
           const summary = {
             total: dayApts.length,
-            revenue: dayApts.reduce((sum, a) => sum + (a.paidAmount || 0), 0)
+            revenue: dayApts.reduce((sum, a) => sum + (Number(a.paidAmount) || 0), 0)
           };
           Object.keys(STATUS_CONFIG).forEach(status => {
             summary[status] = dayApts.filter(a => (a.status || 'scheduled') === status).length;
@@ -254,30 +255,88 @@
           );
         };
 
+        useEffect(() => {
+          const handleGlobalClick = () => {
+            if (activeMenuId) setActiveMenuId(null);
+          };
+          window.addEventListener('click', handleGlobalClick);
+          return () => window.removeEventListener('click', handleGlobalClick);
+        }, [activeMenuId]);
+
         const renderSmallStatusActions = (a) => {
           const currentStatus = a.status || 'scheduled';
           const config = STATUS_CONFIG[currentStatus] || STATUS_CONFIG['scheduled'];
+          const treatment = treatments.find(t => t.id === a.treatmentId);
+          
           return (
-            <select 
-              value={currentStatus} 
-              onChange={(e) => {
-                const newStatus = e.target.value;
-                const updates = { status: newStatus };
-                if (newStatus === 'completed') {
-                  updates.isPaid = true;
-                  updates.paidAmount = a.patientPrice;
-                } else {
-                  updates.isPaid = false;
-                  updates.paidAmount = 0;
-                }
-                onUpdate(a.id, updates);
-              }}
-              className={`px-1 py-0.5 rounded text-[9px] font-black transition-all outline-none appearance-none cursor-pointer border ${config.bg} ${config.border} ${config.text}`}
-            >
-              {Object.entries(STATUS_CONFIG).map(([key, val]) => (
-                <option key={key} value={key} className="text-stone-800 bg-white">{val.label}</option>
-              ))}
-            </select>
+            <div className="flex items-center gap-0.5 md:gap-1 relative">
+              {/* More Actions Dropdown */}
+              {user?.role !== 'therapist' && (
+                <div className="relative">
+                  <button 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setActiveMenuId(activeMenuId === a.id ? null : a.id);
+                    }}
+                    className={`p-0.5 rounded hover:bg-stone-200/50 transition-colors ${config.text}`}
+                  >
+                    <MoreVertical size={8} className="md:hidden" />
+                    <MoreVertical size={12} className="hidden md:block" />
+                  </button>
+                  
+                  {activeMenuId === a.id && (
+                    <div className="absolute right-0 top-full mt-1 w-20 md:w-24 bg-white border border-stone-100 rounded-lg shadow-xl z-50 overflow-hidden py-1">
+                      <button onClick={(e) => { 
+                        e.stopPropagation();
+                        setEditingApt(a); 
+                        setForm({ ...a, category: treatment?.category || '心理' }); 
+                        setIsAddOpen(true); 
+                        setActiveMenuId(null);
+                      }} className="w-full px-2 md:px-3 py-1 md:py-2 text-[8px] md:text-[10px] font-bold text-stone-600 hover:bg-stone-50 flex items-center gap-1 md:gap-2 border-b border-stone-50">
+                        <Edit3 size={8} className="md:hidden"/><Edit3 size={10} className="hidden md:block"/> 編輯
+                      </button>
+                      <button onClick={(e) => { 
+                        e.stopPropagation();
+                        setEditingApt(null); 
+                        setForm({ ...a, id: undefined, category: treatment?.category || '心理' }); 
+                        setIsAddOpen(true); 
+                        setActiveMenuId(null);
+                      }} className="w-full px-2 md:px-3 py-1 md:py-2 text-[8px] md:text-[10px] font-bold text-stone-600 hover:bg-stone-50 flex items-center gap-1 md:gap-2 border-b border-stone-50">
+                        <Copy size={8} className="md:hidden"/><Copy size={10} className="hidden md:block"/> 複製
+                      </button>
+                      <button onClick={(e) => { 
+                        e.stopPropagation();
+                        if (confirm('確定刪除此預約？')) onDelete(a.id);
+                        setActiveMenuId(null);
+                      }} className="w-full px-2 md:px-3 py-1 md:py-2 text-[8px] md:text-[10px] font-bold text-red-500 hover:bg-red-50 flex items-center gap-1 md:gap-2">
+                        <Trash2 size={8} className="md:hidden"/><Trash2 size={10} className="hidden md:block"/> 刪除
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <select 
+                value={currentStatus} 
+                onChange={(e) => {
+                  const newStatus = e.target.value;
+                  const updates = { status: newStatus };
+                  if (newStatus === 'completed') {
+                    updates.isPaid = true;
+                    updates.paidAmount = a.patientPrice || treatment?.patientPrice || 0;
+                  } else {
+                    updates.isPaid = false;
+                    updates.paidAmount = 0;
+                  }
+                  onUpdate(a.id, updates);
+                }}
+                className={`px-0.5 md:px-1 py-0 md:py-0.5 rounded text-[5px] md:text-[9px] font-black transition-all outline-none appearance-none cursor-pointer border ${config.bg} ${config.border} ${config.text}`}
+              >
+                {Object.entries(STATUS_CONFIG).map(([key, val]) => (
+                  <option key={key} value={key} className="text-stone-800 bg-white">{val.label}</option>
+                ))}
+              </select>
+            </div>
           );
         };
 
@@ -401,23 +460,24 @@
           <div className="space-y-6">
             {/* Dashboard Widget */}
             {/* Quick Stats Row */}
-            <div className="bg-white px-6 py-3 rounded-[2rem] border border-stone-100 shadow-sm flex flex-wrap items-center gap-x-8 gap-y-2">
-              <div className="flex items-center gap-2">
-                <span className="text-[10px] font-black text-stone-400 uppercase tracking-widest">當日總診次</span>
-                <span className="text-sm font-black text-stone-800">{selectedDateSummary.total}</span>
+            <div className="bg-white px-3 md:px-6 py-2 md:py-3 rounded-[1.5rem] md:rounded-[2rem] border border-stone-100 shadow-sm flex flex-wrap items-center gap-x-4 md:gap-x-8 gap-y-2">
+              <div className="flex items-center gap-1 md:gap-2">
+                <span className="text-[8px] md:text-[10px] font-black text-stone-400 uppercase tracking-widest">當日總診次</span>
+                <span className="text-xs md:text-sm font-black text-stone-800">{selectedDateSummary.total}</span>
               </div>
-              <div className="h-4 w-px bg-stone-100 hidden sm:block"></div>
+              <div className="h-3 md:h-4 w-px bg-stone-100 hidden sm:block"></div>
               {Object.entries(STATUS_CONFIG).map(([key, config]) => (
-                <div key={key} className="flex items-center gap-2">
-                  <div className={`w-2 h-2 rounded-full ${config.dot}`}></div>
-                  <span className="text-[10px] font-black text-stone-400 uppercase tracking-widest">{config.label}</span>
-                  <span className={`text-sm font-black ${config.text}`}>{selectedDateSummary[key] || 0}</span>
+                <div key={key} className="flex items-center gap-1 md:gap-2">
+                  <div className={`w-1.5 h-1.5 md:w-2 md:h-2 rounded-full ${config.dot}`}></div>
+                  <span className="text-[8px] md:text-[10px] font-black text-stone-400 uppercase tracking-widest">{config.label}</span>
+                  <span className={`text-xs md:text-sm font-black ${config.text}`}>{selectedDateSummary[key] || 0}</span>
                 </div>
               ))}
-              <div className="ml-auto flex items-center gap-2 bg-emerald-50 px-4 py-1 rounded-full border border-emerald-100">
-                <Banknote size={14} className="text-emerald-500" />
-                <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">今日總收款</span>
-                <span className="text-lg font-black text-emerald-700">${selectedDateSummary.revenue.toLocaleString()}</span>
+              <div className="ml-auto flex items-center gap-1 md:gap-2 bg-emerald-50 px-3 md:px-4 py-0.5 md:py-1 rounded-full border border-emerald-100">
+                <Banknote size={12} className="text-emerald-500 md:hidden" />
+                <Banknote size={14} className="text-emerald-500 hidden md:block" />
+                <span className="text-[8px] md:text-[10px] font-black text-emerald-600 uppercase tracking-widest">今日總收款</span>
+                <span className="text-sm md:text-lg font-black text-emerald-700">${selectedDateSummary.revenue.toLocaleString()}</span>
               </div>
             </div>
 
@@ -534,11 +594,11 @@
                 <div className="flex flex-col overflow-hidden">
                   {/* Header Row (Rooms) */}
                   <div className="flex border-b border-stone-100 bg-stone-50/50 sticky top-0 z-20">
-                    <div className="w-16 shrink-0 border-r border-stone-100"></div>
+                    <div className="w-8 md:w-16 shrink-0 border-r border-stone-100"></div>
                     <div className="flex-1 grid" style={{ gridTemplateColumns: `repeat(${TREATMENT_ROOMS.length}, minmax(0, 1fr))` }}>
                       {TREATMENT_ROOMS.map(room => (
-                        <div key={room} className="px-2 py-3 text-center border-r border-stone-100 last:border-none">
-                          <span className="text-[10px] font-black text-stone-400 uppercase tracking-widest">{room}</span>
+                        <div key={room} className="px-1 md:px-2 py-1.5 md:py-3 text-center border-r border-stone-100 last:border-none">
+                          <span className="text-[7px] md:text-[10px] font-black text-stone-400 uppercase tracking-widest">{room}</span>
                         </div>
                       ))}
                     </div>
@@ -556,8 +616,8 @@
                       return (
                         <div key={timeStr} className={`flex border-b border-stone-100 transition-colors ${isHovered ? 'bg-brand-orange/5' : ''}`}>
                           {/* Time Label */}
-                          <div className={`w-16 shrink-0 border-r border-stone-100 flex items-start justify-end pr-2 pt-2 bg-stone-50/30 ${isHour ? 'font-black' : 'opacity-50'}`}>
-                            <span className={`text-[10px] transition-all duration-300 ${isHovered ? 'text-brand-orange scale-110' : 'text-stone-400'}`}>
+                          <div className={`w-8 md:w-16 shrink-0 border-r border-stone-100 flex items-start justify-end pr-1 md:pr-2 pt-1 md:pt-2 bg-stone-50/30 ${isHour ? 'font-black' : 'opacity-50'}`}>
+                            <span className={`text-[6px] md:text-[10px] transition-all duration-300 ${isHovered ? 'text-brand-orange scale-110' : 'text-stone-400'}`}>
                               {timeStr}
                             </span>
                           </div>
@@ -570,7 +630,7 @@
                               return (
                                 <div 
                                   key={room} 
-                                  className="border-r border-stone-100 last:border-none p-1 min-h-[120px] relative group hover:bg-brand-orange/5 transition-colors"
+                                  className="border-r border-stone-100 last:border-none p-0.5 md:p-1 min-h-[60px] md:min-h-[120px] relative group hover:bg-brand-orange/5 transition-colors"
                                   onClick={(e) => {
                                     if (e.target === e.currentTarget && user?.role !== 'therapist') {
                                       setEditingApt(null);
@@ -607,57 +667,43 @@
                                           key={group.id}
                                           onMouseEnter={() => setHoveredHour(hour)}
                                           onMouseLeave={() => setHoveredHour(null)}
-                                          className={`p-2 rounded-xl border text-[10px] transition-all duration-300 shadow-sm flex flex-col gap-1 overflow-hidden bg-white ${isGroup ? 'border-brand-orange/40 ring-2 ring-brand-orange/5' : 'border-stone-200'} ${isHovered ? 'border-brand-orange ring-4 ring-brand-orange/10 shadow-md' : ''}`}
+                                          className={`p-1 md:p-2 rounded-lg md:rounded-xl border text-[6px] md:text-[10px] transition-all duration-300 shadow-sm flex flex-col gap-0.5 md:gap-1 overflow-hidden bg-white ${isGroup ? 'border-brand-orange/40 ring-1 md:ring-2 ring-brand-orange/5' : 'border-stone-200'} ${isHovered ? 'border-brand-orange ring-2 md:ring-4 ring-brand-orange/10 shadow-md' : ''}`}
                                         >
                                           <div className="flex justify-between items-start">
                                             <div className="flex flex-col">
-                                              <span className="font-black text-stone-800 leading-tight">{treatment?.name}</span>
-                                              <div className="text-[9px] text-stone-400 font-bold flex items-center gap-1 mt-0.5">
-                                                <UsersIcon size={8}/> {therapist?.name}
+                                              <span className="font-black text-stone-800 leading-tight truncate max-w-[40px] md:max-w-none">{treatment?.name}</span>
+                                              <div className="text-[5px] md:text-[9px] text-stone-400 font-bold flex items-center gap-0.5 md:gap-1 mt-0.5">
+                                                <UsersIcon size={6} className="md:hidden"/>
+                                                <UsersIcon size={8} className="hidden md:block"/>
+                                                <span className="truncate">{therapist?.name}</span>
                                               </div>
                                             </div>
-                                            <span className="text-[9px] font-bold text-brand-orange bg-brand-orange/10 px-1 py-0.5 rounded">${treatment?.patientPrice || 0}</span>
+                                            <span className="text-[5px] md:text-[9px] font-bold text-brand-orange bg-brand-orange/10 px-0.5 md:px-1 py-0.25 md:py-0.5 rounded">${treatment?.patientPrice || 0}</span>
                                           </div>
                                           
-                                          <div className="mt-1 space-y-1">
+                                          <div className="mt-0.5 md:mt-1 space-y-0.5 md:space-y-1">
                                             {group.patients.map(p => {
                                               const config = STATUS_CONFIG[p.status || 'scheduled'];
                                               const isSecondary = (p.status === 'leave' || p.status === 'cancelled' || p.status === 'noshow') && group.patients.some(x => x.status !== 'leave' && x.status !== 'cancelled' && x.status !== 'noshow');
                                               return (
-                                                <div key={p.id} className={`group flex flex-col gap-1 p-1.5 rounded border transition-all ${config.bg} ${config.border} ${isSecondary ? 'opacity-40 grayscale scale-[0.98] origin-top' : ''}`}>
-                                                  <div className="flex items-center justify-between">
+                                                <div key={p.id} className={`group flex flex-col gap-0.25 md:gap-0.5 p-0.5 md:p-1.5 rounded border transition-all ${config.bg} ${config.border} ${isSecondary ? 'opacity-40 grayscale scale-[0.98] origin-top' : ''}`}>
+                                                  <div className="flex items-center justify-between gap-0.5">
                                                     <span className={`font-bold truncate ${config.text}`}>{p.patientName}</span>
                                                     {renderSmallStatusActions(p)}
                                                   </div>
                                                   {group.patients.length > 1 && (p.treatmentId !== group.treatmentId || p.therapistId !== group.therapistId) && (
-                                                    <div className="text-[8px] font-bold text-stone-400 flex flex-col gap-0.5 border-t border-stone-100 mt-0.5 pt-0.5">
+                                                    <div className="text-[5px] md:text-[8px] font-bold text-stone-400 flex flex-col gap-0.25 md:gap-0.5 border-t border-stone-100 mt-0.25 md:mt-0.5 pt-0.25 md:pt-0.5">
                                                       {p.treatmentId !== group.treatmentId && <span className="truncate">{treatments.find(t => t.id === p.treatmentId)?.name}</span>}
-                                                      {p.therapistId !== group.therapistId && <span className="truncate flex items-center gap-0.5"><UsersIcon size={8}/> {therapists.find(t => t.id === p.therapistId)?.name}</span>}
+                                                      {p.therapistId !== group.therapistId && <span className="truncate flex items-center gap-0.25 md:gap-0.5">
+                                                        <UsersIcon size={6} className="md:hidden"/>
+                                                        <UsersIcon size={8} className="hidden md:block"/>
+                                                        {therapists.find(t => t.id === p.therapistId)?.name}
+                                                      </span>}
                                                     </div>
                                                   )}
                                                   {p.notes && (
-                                                    <div className={`text-[8px] italic border-t border-stone-100/30 mt-0.5 pt-0.5 opacity-70 truncate ${config.text}`} title={p.notes}>
+                                                    <div className={`text-[5px] md:text-[8px] italic opacity-70 truncate ${config.text}`} title={p.notes}>
                                                       {p.notes}
-                                                    </div>
-                                                  )}
-                                                  {user?.role !== 'therapist' && (
-                                                    <div className="flex items-center justify-end gap-1 mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                      <button onClick={(e) => { 
-                                                        e.stopPropagation();
-                                                        setEditingApt(p); 
-                                                        setForm({ ...p, category: treatment?.category || '心理' }); 
-                                                        setIsAddOpen(true); 
-                                                      }} className={`p-1 transition-all hover:text-brand-orange ${config.text}`} title="編輯"><Edit3 size={12}/></button>
-                                                      <button onClick={(e) => { 
-                                                        e.stopPropagation();
-                                                        setEditingApt(null); 
-                                                        setForm({ ...p, id: undefined, category: treatment?.category || '心理' }); 
-                                                        setIsAddOpen(true); 
-                                                      }} className={`p-1 transition-all hover:text-brand-orange ${config.text}`} title="複製"><Copy size={12}/></button>
-                                                      <button onClick={(e) => { 
-                                                        e.stopPropagation();
-                                                        confirm('確定刪除此預約？') && onDelete(p.id);
-                                                      }} className={`p-1 transition-all hover:text-red-500 ${config.text}`} title="刪除"><Trash2 size={12}/></button>
                                                     </div>
                                                   )}
                                                 </div>
@@ -665,7 +711,7 @@
                                             })}
                                           </div>
                                           {isGroup && user?.role !== 'therapist' && (
-                                            <div className="mt-2 flex gap-1">
+                                            <div className="mt-1 md:mt-2 flex gap-0.5 md:gap-1">
                                               <button onClick={(e) => {
                                                 e.stopPropagation();
                                                 setGroupCopyModal(group);
@@ -674,8 +720,10 @@
                                                   time: group.time,
                                                   weeks: 1
                                                 });
-                                              }} className="flex-1 py-1 rounded bg-stone-100 text-[8px] font-black text-stone-600 hover:bg-stone-200 flex items-center justify-center gap-1">
-                                                <Copy size={8}/> 複製團體
+                                              }} className="flex-1 py-0.5 md:py-1 rounded bg-stone-100 text-[5px] md:text-[8px] font-black text-stone-600 hover:bg-stone-200 flex items-center justify-center gap-0.5 md:gap-1">
+                                                <Copy size={6} className="md:hidden"/>
+                                                <Copy size={8} className="hidden md:block"/>
+                                                複製
                                               </button>
                                               <button onClick={(e) => {
                                                 e.stopPropagation();
@@ -693,8 +741,10 @@
                                                 });
                                                 setIsAddingToGroup(true);
                                                 setIsAddOpen(true);
-                                              }} className="flex-1 py-1 rounded bg-brand-orange text-[8px] font-black text-white hover:bg-stone-900 flex items-center justify-center gap-1">
-                                                <UserPlus size={8}/> 新增
+                                              }} className="flex-1 py-0.5 md:py-1 rounded bg-brand-orange text-[5px] md:text-[8px] font-black text-white hover:bg-stone-900 flex items-center justify-center gap-0.5 md:gap-1">
+                                                <UserPlus size={6} className="md:hidden"/>
+                                                <UserPlus size={8} className="hidden md:block"/>
+                                                新增
                                               </button>
                                             </div>
                                           )}
@@ -921,12 +971,12 @@
               <div className="bg-white rounded-[2.5rem] border border-stone-100 shadow-sm overflow-hidden flex flex-col">
                 {/* Header Row (Days) */}
                 <div className="flex border-b border-stone-100 bg-stone-50/50 sticky top-0 z-20">
-                  <div className="w-16 shrink-0 border-r border-stone-100"></div>
+                  <div className="w-8 md:w-16 shrink-0 border-r border-stone-100"></div>
                   <div className="flex-1 grid grid-cols-7">
                     {weekDays.map(day => (
-                      <div key={day.toISOString()} className={`text-center py-3 border-r border-stone-100 last:border-none ${getDayTextClass(day)}`}>
-                        <p className="text-[10px] font-black uppercase tracking-widest">{format(day, 'EEE')}</p>
-                        <button onClick={() => {setSelectedDate(format(day, 'yyyy-MM-dd')); setViewMode('day');}} className={`mt-1 text-lg font-black w-8 h-8 mx-auto flex items-center justify-center rounded-full transition-all hover:scale-110 ${isToday(day) ? 'bg-brand-orange text-white shadow-md' : ''}`}>
+                      <div key={day.toISOString()} className={`text-center py-1 md:py-3 border-r border-stone-100 last:border-none flex flex-col items-center justify-center ${getDayTextClass(day)}`}>
+                        <p className="text-[6px] md:text-[10px] font-black uppercase tracking-widest leading-none md:leading-normal">{format(day, 'EEE')}</p>
+                        <button onClick={() => {setSelectedDate(format(day, 'yyyy-MM-dd')); setViewMode('day');}} className={`mt-0.5 md:mt-1 text-xs md:text-lg font-black w-4 h-4 md:w-8 md:h-8 flex items-center justify-center rounded-full transition-all hover:scale-110 ${isToday(day) ? 'bg-brand-orange text-white shadow-md' : ''}`}>
                           {format(day, 'd')}
                         </button>
                       </div>
@@ -946,8 +996,8 @@
                     return (
                       <div key={timeStr} className={`flex border-b border-stone-100 transition-colors ${isHovered ? 'bg-brand-orange/5' : ''}`}>
                         {/* Time Label */}
-                        <div className={`w-16 shrink-0 border-r border-stone-100 flex items-start justify-end pr-2 pt-2 bg-stone-50/30 ${isHour ? 'font-black' : 'opacity-50'}`}>
-                          <span className={`text-[10px] transition-all duration-300 ${isHovered ? 'text-brand-orange scale-110' : 'text-stone-400'}`}>
+                        <div className={`w-8 md:w-16 shrink-0 border-r border-stone-100 flex items-start justify-end pr-1 md:pr-2 pt-1 md:pt-2 bg-stone-50/30 ${isHour ? 'font-black' : 'opacity-50'}`}>
+                          <span className={`text-[6px] md:text-[10px] transition-all duration-300 ${isHovered ? 'text-brand-orange scale-110' : 'text-stone-400'}`}>
                             {timeStr}
                           </span>
                         </div>
@@ -961,7 +1011,7 @@
                             return (
                               <div 
                                 key={ds} 
-                                className="border-r border-stone-100 last:border-none p-1 min-h-[100px] relative group hover:bg-brand-orange/5 transition-colors"
+                                className="border-r border-stone-100 last:border-none p-0.5 md:p-1 min-h-[50px] md:min-h-[100px] relative group hover:bg-brand-orange/5 transition-colors"
                                 onClick={(e) => {
                                   if (e.target === e.currentTarget && user?.role !== 'therapist') {
                                     setSelectedDate(ds);
@@ -981,43 +1031,23 @@
                                 }}
                               >
                                 {dayApts.length > 0 && (
-                                  <div className="flex flex-col gap-1">
+                                  <div className="flex flex-col gap-0.5 md:gap-1">
                                     {dayApts.map(p => {
                                       const config = STATUS_CONFIG[p.status || 'scheduled'];
                                       return (
                                         <div 
                                           key={p.id}
-                                          className={`group flex flex-col p-1.5 rounded border transition-all cursor-pointer hover:ring-1 hover:ring-brand-orange ${config.bg} ${config.border}`}
+                                          className={`group/apt flex flex-col p-0.25 md:p-1.5 rounded-sm md:rounded border transition-all cursor-pointer hover:ring-1 hover:ring-brand-orange ${config.bg} ${config.border}`}
                                         >
-                                          <div className="flex items-center justify-between gap-1">
-                                            <span className={`truncate leading-tight font-black text-[10px] ${config.text}`}>{p.patientName}</span>
-                                            <span className="text-[8px] text-stone-400 font-bold">{p.treatmentRoom}</span>
+                                          <div className="flex items-center justify-between gap-0.25 md:gap-1">
+                                            <span className={`truncate leading-tight font-black text-[5px] md:text-[10px] ${config.text}`}>{p.patientName}</span>
+                                            {renderSmallStatusActions(p)}
                                           </div>
-                                          <div className="flex flex-col gap-0 overflow-hidden mt-0.5">
-                                            <span className="text-stone-500 truncate text-[9px] leading-none">{treatments.find(t => t.id === p.treatmentId)?.name}</span>
-                                            <span className="text-stone-400 truncate text-[8px] leading-none flex items-center gap-0.5 mt-0.5"><UsersIcon size={8}/> {therapists.find(t => t.id === p.therapistId)?.name}</span>
-                                            {p.notes && <span className="text-stone-300 truncate italic text-[8px] leading-none mt-0.5">註：{p.notes}</span>}
+                                          <div className="flex flex-col gap-0 overflow-hidden mt-0 md:mt-0.5">
+                                            <span className="text-stone-500 truncate text-[4px] md:text-[9px] leading-none">{treatments.find(t => t.id === p.treatmentId)?.name}</span>
+                                            <span className="text-stone-400 truncate text-[4px] md:text-[8px] leading-none flex items-center gap-0.25 mt-0 md:mt-0.5"><UsersIcon className="w-1.5 h-1.5 md:w-3 md:h-3 shrink-0"/> <span className="truncate">{therapists.find(t => t.id === p.therapistId)?.name}</span></span>
+                                            {p.notes && <span className="text-stone-300 truncate italic text-[4px] md:text-[8px] leading-none mt-0 md:mt-0.5">註：{p.notes}</span>}
                                           </div>
-                                          {user?.role !== 'therapist' && (
-                                            <div className="flex items-center justify-end gap-1 mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                              <button onClick={(e) => { 
-                                                e.stopPropagation();
-                                                setEditingApt(p); 
-                                                setForm({ ...p, category: treatments.find(t => t.id === p.treatmentId)?.category || '心理' }); 
-                                                setIsAddOpen(true); 
-                                              }} className={`p-1 transition-all hover:text-brand-orange ${config.text}`} title="編輯"><Edit3 size={10}/></button>
-                                              <button onClick={(e) => { 
-                                                e.stopPropagation();
-                                                setEditingApt(null); 
-                                                setForm({ ...p, id: undefined, category: treatments.find(t => t.id === p.treatmentId)?.category || '心理' }); 
-                                                setIsAddOpen(true); 
-                                              }} className={`p-1 transition-all hover:text-brand-orange ${config.text}`} title="複製"><Copy size={10}/></button>
-                                              <button onClick={(e) => { 
-                                                e.stopPropagation();
-                                                confirm('確定刪除此預約？') && onDelete(p.id);
-                                              }} className={`p-1 transition-all hover:text-red-500 ${config.text}`} title="刪除"><Trash2 size={10}/></button>
-                                            </div>
-                                          )}
                                         </div>
                                       );
                                     })}
@@ -1026,7 +1056,7 @@
                                 {/* Add Button Placeholder */}
                                 {user?.role !== 'therapist' && dayApts.length === 0 && (
                                   <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-                                    <Plus className="text-brand-orange/30" size={20} />
+                                    <Plus className="text-brand-orange/30 w-3 h-3 md:w-5 md:h-5" />
                                   </div>
                                 )}
                               </div>
