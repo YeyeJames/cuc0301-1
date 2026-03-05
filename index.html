@@ -75,7 +75,7 @@
       import { 
         Plus, ChevronLeft, ChevronRight, Calendar, CheckCircle, Banknote, Trash2, RotateCcw, 
         X, Settings, LogOut, User as UserIcon, ChartColumn, Download, Upload, Brain, Activity, Zap, Briefcase, FileText, Coffee, Users as UsersIcon, UserPlus, Users, Edit3, Menu, Info, CircleUser,
-        Copy, MoreVertical
+        Copy, MoreVertical, Maximize2
       } from 'lucide-react';
 
       // --- Data Service ---
@@ -142,6 +142,7 @@
       const ScheduleView = ({ user, appointments, therapists, treatments, onAdd, onUpdate, onDelete }) => {
         const [filters, setFilters] = useState({ therapistId: '', category: '', status: '' });
         const [showHistory, setShowHistory] = useState(null); // patientName
+        const [showDayDetail, setShowDayDetail] = useState(null); // date string
         const [groupCopyModal, setGroupCopyModal] = useState(null);
         const [groupCopyForm, setGroupCopyForm] = useState({ startDate: '', time: '', weeks: 1 });
 
@@ -1053,12 +1054,6 @@
                                     })}
                                   </div>
                                 )}
-                                {/* Add Button Placeholder */}
-                                {user?.role !== 'therapist' && dayApts.length === 0 && (
-                                  <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-                                    <Plus className="text-brand-orange/30 w-3 h-3 md:w-5 md:h-5" />
-                                  </div>
-                                )}
                               </div>
                             );
                           })}
@@ -1080,31 +1075,131 @@
                 <div className="grid grid-cols-7 gap-2 md:gap-3">
                   {monthDays.map(day => {
                     const ds = format(day, 'yyyy-MM-dd');
-                    const dayApts = getAppointmentsForDate(ds);
+                    const dayApts = getAppointmentsForDate(ds).sort((a,b) => a.time.localeCompare(b.time));
                     const isCurMonth = isSameMonth(day, currentSelected);
+                    const maxVisible = 3;
+                    
                     return (
-                      <div key={ds} onClick={() => {setSelectedDate(ds); setViewMode('day');}} className={`min-h-[110px] p-2 rounded-3xl border transition-all cursor-pointer relative flex flex-col items-center justify-start ${!isCurMonth ? 'bg-stone-50 opacity-20' : getDayStyleClass(day)} hover:shadow-xl hover:-translate-y-1`}>
-                        <span className={`text-sm font-black w-8 h-8 flex items-center justify-center rounded-full ${isToday(day) ? 'bg-brand-orange text-white ring-4 ring-brand-orange/20' : ''}`}>
-                          {format(day, 'd')}
-                        </span>
-                        {dayApts.length > 0 && (
-                          <div className="mt-2 flex flex-wrap justify-center gap-1.5 px-1">
-                            {dayApts.slice(0, 6).map(a => {
-                              const config = STATUS_CONFIG[a.status || 'scheduled'] || STATUS_CONFIG['scheduled'];
-                              return (
-                                <div key={a.id} className={`w-1.5 h-1.5 rounded-full ${config.dot} shadow-sm`}></div>
-                              );
-                            })}
-                            {dayApts.length > 6 && <span className="text-[8px] text-stone-300 font-bold leading-none">+{dayApts.length-6}</span>}
-                          </div>
-                        )}
-                        <span className="mt-auto text-[9px] font-bold text-stone-300 group-hover:text-stone-500">{dayApts.length > 0 ? `${dayApts.length} 診` : ''}</span>
+                      <div 
+                        key={ds} 
+                        onClick={() => {
+                          if (user?.role !== 'therapist') {
+                            setEditingApt(null);
+                            setForm({
+                              patientName: '',
+                              time: '09:00',
+                              date: ds,
+                              therapistId: '',
+                              treatmentId: '',
+                              notes: '',
+                              treatmentRoom: '二診',
+                              category: '心理'
+                            });
+                            setIsAddOpen(true);
+                          }
+                        }} 
+                        className={`min-h-[130px] p-2 rounded-3xl border transition-all cursor-pointer relative flex flex-col items-start justify-start overflow-hidden ${!isCurMonth ? 'bg-stone-50 opacity-20' : getDayStyleClass(day)} hover:shadow-xl hover:-translate-y-1`}
+                      >
+                        <div className="flex justify-between items-center w-full mb-1">
+                          <span className={`text-sm font-black w-7 h-7 flex items-center justify-center rounded-full ${isToday(day) ? 'bg-brand-orange text-white ring-4 ring-brand-orange/20' : ''}`}>
+                            {format(day, 'd')}
+                          </span>
+                          {dayApts.length > 0 && (
+                            <button 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setShowDayDetail(ds);
+                              }}
+                              className="p-1 hover:bg-black/5 rounded-lg text-stone-400 transition-colors"
+                              title="展開詳情"
+                            >
+                              <Maximize2 size={14} />
+                            </button>
+                          )}
+                        </div>
+                        
+                        <div className="w-full space-y-0.5 overflow-hidden">
+                          {dayApts.slice(0, maxVisible).map(a => {
+                            const therapist = therapists.find(t => t.id === a.therapistId);
+                            return (
+                              <div key={a.id} className="text-[9px] leading-tight flex items-center gap-1 truncate text-stone-600 font-medium">
+                                <span className="font-black text-brand-orange shrink-0">{a.time}</span>
+                                <span className="truncate font-bold">{a.patientName}</span>
+                                <span className="text-stone-400 shrink-0">({therapist?.name?.charAt(0)})</span>
+                              </div>
+                            );
+                          })}
+                          {dayApts.length > maxVisible && (
+                            <div className="text-[9px] font-black text-stone-300 mt-0.5">
+                              還有 {dayApts.length - maxVisible} 筆...
+                            </div>
+                          )}
+                        </div>
                       </div>
                     );
                   })}
                 </div>
               </div>
             )}
+
+            {/* Day Detail Modal */}
+            <Modal 
+              isOpen={!!showDayDetail} 
+              onClose={() => setShowDayDetail(null)} 
+              title={`${showDayDetail} 預約詳情`}
+            >
+              <div className="space-y-4">
+                {getAppointmentsForDate(showDayDetail).sort((a,b) => a.time.localeCompare(b.time)).map(a => {
+                  const treatment = treatments.find(t => t.id === a.treatmentId);
+                  const therapist = therapists.find(t => t.id === a.therapistId);
+                  
+                  return (
+                    <div key={a.id} className="p-4 rounded-2xl border border-stone-100 bg-stone-50/50 flex flex-col gap-3">
+                      <div className="flex items-center gap-3">
+                        <span className="text-xs font-black bg-stone-900 text-white px-2 py-1 rounded-lg">{a.time}</span>
+                        <span className="text-sm font-black text-stone-800">{a.patientName}</span>
+                      </div>
+                      
+                      <div className="grid grid-cols-2 gap-4 text-xs">
+                        <div className="flex flex-col gap-1">
+                          <span className="text-[10px] font-black text-stone-400 uppercase tracking-widest">治療項目</span>
+                          <span className="font-bold text-stone-600">{treatment?.name}</span>
+                        </div>
+                        <div className="flex flex-col gap-1">
+                          <span className="text-[10px] font-black text-stone-400 uppercase tracking-widest">治療師</span>
+                          <span className="font-bold text-stone-600">{therapist?.name}</span>
+                        </div>
+                        <div className="flex flex-col gap-1">
+                          <span className="text-[10px] font-black text-stone-400 uppercase tracking-widest">治療室</span>
+                          <span className="font-bold text-stone-600">{a.treatmentRoom}</span>
+                        </div>
+                        <div className="flex flex-col gap-1">
+                          <span className="text-[10px] font-black text-stone-400 uppercase tracking-widest">類別</span>
+                          <span className="font-bold text-stone-600">{a.category}</span>
+                        </div>
+                      </div>
+                      
+                      {a.notes && (
+                        <div className="pt-2 border-t border-stone-100">
+                          <span className="text-[10px] font-black text-stone-400 uppercase tracking-widest block mb-1">備註</span>
+                          <p className="text-xs italic text-stone-500">{a.notes}</p>
+                        </div>
+                      )}
+
+                      <div className="pt-3 border-t border-stone-100 flex justify-end items-center gap-3">
+                        <div className="flex flex-col items-end gap-1">
+                          <span className="text-[10px] font-black text-stone-400 uppercase tracking-widest">狀態與操作</span>
+                          {renderSmallStatusActions(a)}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+                {showDayDetail && getAppointmentsForDate(showDayDetail).length === 0 && (
+                  <div className="text-center py-12 text-stone-400 font-bold">當日無預約</div>
+                )}
+              </div>
+            </Modal>
 
             {/* Add/Edit Modal */}
             <Modal isOpen={isAddOpen} onClose={() => { setIsAddOpen(false); setIsAddingToGroup(false); }} title={isAddingToGroup ? "新增團體個案" : (editingApt ? "編輯排程" : "建立預約")}>
