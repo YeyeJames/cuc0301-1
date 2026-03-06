@@ -1141,12 +1141,19 @@
                       if (tr?.isGroupTherapy) {
                         const key = `${a.time}-${a.treatmentRoom}-${a.treatmentId}`;
                         if (!groupMap[key]) {
-                          groupMap[key] = { ...a, isGroup: true, count: 0, ids: [], patients: [] };
+                          groupMap[key] = { ...a, isGroup: true, count: 0, ids: [], patients: [], groupStatus: 'scheduled' };
                           grouped.push(groupMap[key]);
                         }
                         groupMap[key].count += 1;
                         groupMap[key].ids.push(a.id);
                         groupMap[key].patients.push({ id: a.id, name: a.patientName, status: a.status });
+                        
+                        // Calculate group status: if any is completed -> completed, if any is scheduled -> scheduled, else cancelled
+                        const statuses = dayApts.filter(apt => apt.time === a.time && apt.treatmentRoom === a.treatmentRoom && apt.treatmentId === a.treatmentId).map(apt => apt.status || 'scheduled');
+                        if (statuses.includes('completed')) groupMap[key].groupStatus = 'completed';
+                        else if (statuses.includes('scheduled')) groupMap[key].groupStatus = 'scheduled';
+                        else if (statuses.includes('noshow')) groupMap[key].groupStatus = 'noshow';
+                        else groupMap[key].groupStatus = statuses[0]; // cancelled or leave
                       } else {
                         grouped.push({ ...a, isGroup: false });
                       }
@@ -1182,7 +1189,8 @@
                           {visibleApts.map((a, i) => {
                             const therapist = therapists.find(t => t.id === a.therapistId);
                             const treatment = treatments.find(t => t.id === a.treatmentId);
-                            const config = STATUS_CONFIG[a.status || 'scheduled'] || STATUS_CONFIG['scheduled'];
+                            const displayStatus = a.isGroup ? a.groupStatus : (a.status || 'scheduled');
+                            const config = STATUS_CONFIG[displayStatus] || STATUS_CONFIG['scheduled'];
                             const tColor = getTherapistColor(a.therapistId);
                             
                             return (
@@ -1284,11 +1292,13 @@
                       </Button>
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      {showGroupDetail.patients.map(p => {
+                      {showGroupDetail.ids.map(id => {
+                        const p = appointments.find(apt => apt.id === id);
+                        if (!p) return null;
                         const config = STATUS_CONFIG[p.status || 'scheduled'];
                         return (
                           <div key={p.id} className="bg-white p-3 rounded-2xl border border-stone-100 flex justify-between items-center group">
-                            <span className="text-sm font-black text-stone-800">{p.name}</span>
+                            <span className="text-sm font-black text-stone-800">{p.patientName}</span>
                             <div className="flex items-center gap-2">
                               <select 
                                 className={`text-[10px] font-black rounded-lg px-2 py-1 border-none outline-none ${config.bg} ${config.text}`}
@@ -1301,8 +1311,7 @@
                               </select>
                               <button 
                                 onClick={() => {
-                                  const apt = appointments.find(a => a.id === p.id);
-                                  setShowAptDetail(apt);
+                                  setShowAptDetail(p);
                                   setShowGroupDetail(null);
                                 }}
                                 className="p-1.5 hover:bg-stone-50 rounded-lg text-stone-300 opacity-0 group-hover:opacity-100 transition-all"
