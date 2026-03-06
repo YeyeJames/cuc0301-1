@@ -1770,7 +1770,7 @@
         );
       };
 
-      const SettingsView = ({ therapists, treatments, appointments, logs, accounts, onUpdateT, onUpdateTr, onUpdateA, onImportData }) => {
+      const SettingsView = ({ therapists, treatments, appointments, logs, accounts, onUpdateT, onUpdateTr, onUpdateA, onImportData, setView }) => {
         const [tab, setTab] = useState('accounts');
         const [isTrModalOpen, setIsTrModalOpen] = useState(false);
         const [isTModalOpen, setIsTModalOpen] = useState(false);
@@ -1871,6 +1871,16 @@
 
         return (
           <div className="space-y-6">
+            <div className="flex items-center gap-4 mb-4">
+              <button onClick={() => setView('dashboard')} className="p-3 bg-white border border-stone-100 rounded-2xl text-stone-400 hover:text-brand-orange hover:border-brand-orange/20 transition-all shadow-sm group">
+                <ChevronLeft size={24} className="group-hover:-translate-x-0.5 transition-transform" />
+              </button>
+              <div>
+                <h2 className="text-3xl font-black text-stone-800 tracking-tight">系統管理中心</h2>
+                <p className="text-stone-400 font-bold mt-1">管理帳號、人員、項目與系統安全</p>
+              </div>
+            </div>
+
             <div className="bg-white p-2 rounded-2xl shadow-sm border border-stone-100 flex gap-2 overflow-x-auto no-scrollbar">
               <button onClick={() => setTab('accounts')} className={`flex-1 py-3 px-4 rounded-xl text-xs font-black transition-all whitespace-nowrap ${tab === 'accounts' ? 'bg-stone-900 text-white shadow-lg' : 'text-stone-400 hover:bg-stone-50'}`}>帳號管理</button>
               <button onClick={() => setTab('therapists')} className={`flex-1 py-3 px-4 rounded-xl text-xs font-black transition-all whitespace-nowrap ${tab === 'therapists' ? 'bg-stone-900 text-white shadow-lg' : 'text-stone-400 hover:bg-stone-50'}`}>治療師管理</button>
@@ -2135,9 +2145,43 @@
                     </div>
                     <div className="space-y-2">
                       {tab === 'therapists' ? (
-                        therapists.filter(t => t.category === cat).map(t => (
+                        therapists.filter(t => t.category === cat).map((t, idx, arr) => (
                           <div key={t.id} className="p-4 bg-white border border-stone-100 rounded-2xl flex justify-between items-center shadow-sm group">
-                            <p className="font-black text-stone-800">{t.name}</p>
+                            <div className="flex items-center gap-3">
+                              <div className="flex flex-col gap-0.5">
+                                <button 
+                                  disabled={idx === 0}
+                                  onClick={() => {
+                                    const globalIdx = therapists.findIndex(x => x.id === t.id);
+                                    const prevGlobalIdx = therapists.findLastIndex((x, i) => i < globalIdx && x.category === cat);
+                                    if (prevGlobalIdx !== -1) {
+                                      const newArr = [...therapists];
+                                      [newArr[globalIdx], newArr[prevGlobalIdx]] = [newArr[prevGlobalIdx], newArr[globalIdx]];
+                                      onUpdateT(newArr);
+                                    }
+                                  }}
+                                  className="text-stone-300 hover:text-brand-orange disabled:opacity-20"
+                                >
+                                  <ChevronLeft size={14} className="rotate-90" />
+                                </button>
+                                <button 
+                                  disabled={idx === arr.length - 1}
+                                  onClick={() => {
+                                    const globalIdx = therapists.findIndex(x => x.id === t.id);
+                                    const nextGlobalIdx = therapists.findIndex((x, i) => i > globalIdx && x.category === cat);
+                                    if (nextGlobalIdx !== -1) {
+                                      const newArr = [...therapists];
+                                      [newArr[globalIdx], newArr[nextGlobalIdx]] = [newArr[nextGlobalIdx], newArr[globalIdx]];
+                                      onUpdateT(newArr);
+                                    }
+                                  }}
+                                  className="text-stone-300 hover:text-brand-orange disabled:opacity-20"
+                                >
+                                  <ChevronLeft size={14} className="-rotate-90" />
+                                </button>
+                              </div>
+                              <p className="font-black text-stone-800">{t.name}</p>
+                            </div>
                             <div className="flex gap-1">
                               <button onClick={() => handleEditT(t)} className="text-stone-400 hover:text-brand-orange transition-all p-2"><Edit3 size={16}/></button>
                               <button onClick={() => confirm(`確定移除 ${t.name}？`) && onUpdateT(therapists.filter(x => x.id !== t.id))} className="text-stone-300 hover:text-red-500 transition-all p-2"><Trash2 size={16}/></button>
@@ -2145,19 +2189,53 @@
                           </div>
                         ))
                       ) : (
-                        treatments.filter(tr => tr.category === cat).map(tr => (
+                        treatments.filter(tr => tr.category === cat).map((tr, idx, arr) => (
                           <div key={tr.id} className="p-4 bg-white border border-stone-100 rounded-2xl shadow-sm space-y-2 group">
                             <div className="flex justify-between items-start">
-                              <div>
-                                <p className="font-black text-stone-800 leading-tight">{tr.name}</p>
-                                {tr.isGroupTherapy && <span className="text-[9px] font-black text-brand-orange bg-brand-orange/10 px-2 py-0.5 rounded-full uppercase mt-1 inline-block">團體</span>}
+                              <div className="flex items-center gap-3">
+                                <div className="flex flex-col gap-0.5">
+                                  <button 
+                                    disabled={idx === 0}
+                                    onClick={() => {
+                                      const globalIdx = treatments.findIndex(x => x.id === tr.id);
+                                      const prevGlobalIdx = treatments.findLastIndex((x, i) => i < globalIdx && x.category === cat);
+                                      if (prevGlobalIdx !== -1) {
+                                        const newArr = [...treatments];
+                                        [newArr[globalIdx], newArr[prevGlobalIdx]] = [newArr[prevGlobalIdx], newArr[globalIdx]];
+                                        onUpdateTr(newArr);
+                                      }
+                                    }}
+                                    className="text-stone-300 hover:text-brand-orange disabled:opacity-20"
+                                  >
+                                    <ChevronLeft size={14} className="rotate-90" />
+                                  </button>
+                                  <button 
+                                    disabled={idx === arr.length - 1}
+                                    onClick={() => {
+                                      const globalIdx = treatments.findIndex(x => x.id === tr.id);
+                                      const nextGlobalIdx = treatments.findIndex((x, i) => i > globalIdx && x.category === cat);
+                                      if (nextGlobalIdx !== -1) {
+                                        const newArr = [...treatments];
+                                        [newArr[globalIdx], newArr[nextGlobalIdx]] = [newArr[nextGlobalIdx], newArr[globalIdx]];
+                                        onUpdateTr(newArr);
+                                      }
+                                    }}
+                                    className="text-stone-300 hover:text-brand-orange disabled:opacity-20"
+                                  >
+                                    <ChevronLeft size={14} className="-rotate-90" />
+                                  </button>
+                                </div>
+                                <div>
+                                  <p className="font-black text-stone-800 leading-tight">{tr.name}</p>
+                                  {tr.isGroupTherapy && <span className="text-[9px] font-black text-brand-orange bg-brand-orange/10 px-2 py-0.5 rounded-full uppercase mt-1 inline-block">團體</span>}
+                                </div>
                               </div>
                               <div className="flex gap-1">
                                 <button onClick={() => handleEditTr(tr)} className="text-stone-400 hover:text-brand-orange transition-all p-2"><Edit3 size={16}/></button>
                                 <button onClick={() => confirm(`確定移除 ${tr.name}？`) && onUpdateTr(treatments.filter(x => x.id !== tr.id))} className="text-stone-300 hover:text-red-500 transition-all p-2"><Trash2 size={16}/></button>
                               </div>
                             </div>
-                            <div className="flex gap-2 text-[10px] font-bold">
+                            <div className="flex gap-2 text-[10px] font-bold ml-7">
                               <span className="bg-stone-50 text-stone-400 px-2 py-0.5 rounded">收 ${tr.patientPrice}</span>
                               <span className="bg-amber-50 text-brand-orange px-2 py-0.5 rounded">薪 ${tr.therapistFee}</span>
                             </div>
@@ -2407,7 +2485,7 @@
       };
 
       // --- Patients View ---
-      const PatientsView = ({ appointments, therapists, treatments }) => {
+      const PatientsView = ({ appointments, therapists, treatments, setView }) => {
         const [searchTerm, setSearchTerm] = useState('');
         const [showHistory, setShowHistory] = useState(null);
 
@@ -2447,9 +2525,14 @@
         return (
           <div className="space-y-6 pb-20">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-              <div>
-                <h2 className="text-3xl font-black text-stone-800 tracking-tight">個案管理中心</h2>
-                <p className="text-stone-400 font-bold mt-1">管理所有個案的預約紀錄與統計</p>
+              <div className="flex items-center gap-4">
+                <button onClick={() => setView('dashboard')} className="p-3 bg-white border border-stone-100 rounded-2xl text-stone-400 hover:text-brand-orange hover:border-brand-orange/20 transition-all shadow-sm group">
+                  <ChevronLeft size={24} className="group-hover:-translate-x-0.5 transition-transform" />
+                </button>
+                <div>
+                  <h2 className="text-3xl font-black text-stone-800 tracking-tight">個案管理中心</h2>
+                  <p className="text-stone-400 font-bold mt-1">管理所有個案的預約紀錄與統計</p>
+                </div>
               </div>
               <div className="relative max-w-md w-full">
                 <div className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-400">
@@ -2539,7 +2622,7 @@
       };
 
       // --- Reports View ---
-      const ReportsView = ({ appointments, therapists, treatments }) => {
+      const ReportsView = ({ appointments, therapists, treatments, setView }) => {
         const [selectedMonth, setSelectedMonth] = useState(format(new Date(), 'yyyy-MM'));
 
         const filteredApts = useMemo(() => {
@@ -2606,9 +2689,14 @@
           <div className="space-y-8 pb-20 print:space-y-0 print:pb-0">
             {/* Header & Month Picker */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 print:hidden">
-              <div>
-                <h2 className="text-3xl font-black text-stone-800 tracking-tight">數據報表分析</h2>
-                <p className="text-stone-400 font-bold mt-1">診所營運數據與薪資統計</p>
+              <div className="flex items-center gap-4">
+                <button onClick={() => setView('dashboard')} className="p-3 bg-white border border-stone-100 rounded-2xl text-stone-400 hover:text-brand-orange hover:border-brand-orange/20 transition-all shadow-sm group">
+                  <ChevronLeft size={24} className="group-hover:-translate-x-0.5 transition-transform" />
+                </button>
+                <div>
+                  <h2 className="text-3xl font-black text-stone-800 tracking-tight">數據報表分析</h2>
+                  <p className="text-stone-400 font-bold mt-1">診所營運數據與薪資統計</p>
+                </div>
               </div>
               <div className="flex items-center gap-3">
                 <Button 
@@ -2821,26 +2909,26 @@
                       <table className="w-full text-left">
                         <thead>
                           <tr className="text-[10px] font-black text-stone-400 uppercase tracking-widest print:text-stone-800">
-                            <th className="pb-4 pl-2">日期</th>
-                            <th className="pb-4">個案姓名</th>
-                            <th className="pb-4">治療項目</th>
-                            <th className="pb-4 text-right pr-2">薪資額</th>
+                            <th className="pb-2 pl-2">日期</th>
+                            <th className="pb-2">個案姓名</th>
+                            <th className="pb-2">治療項目</th>
+                            <th className="pb-2 text-right pr-2">薪資額</th>
                           </tr>
                         </thead>
                         <tbody className="text-sm font-bold text-stone-600 print:text-stone-900">
                           {t.details.map((d, i) => (
                             <tr key={i} className="border-t border-stone-50 print:border-stone-200">
-                              <td className="py-4 pl-2 text-stone-400 print:text-stone-600">{d.date}</td>
-                              <td className="py-4 font-black text-stone-800">{d.patient}</td>
-                              <td className="py-4">{d.treatment}</td>
-                              <td className="py-4 text-right pr-2 text-brand-orange font-black">${d.fee.toLocaleString()}</td>
+                              <td className="py-1.5 pl-2 text-stone-400 print:text-stone-600">{d.date}</td>
+                              <td className="py-1.5 font-black text-stone-800">{d.patient}</td>
+                              <td className="py-1.5">{d.treatment}</td>
+                              <td className="py-1.5 text-right pr-2 text-brand-orange font-black">${d.fee.toLocaleString()}</td>
                             </tr>
                           ))}
                         </tbody>
                         <tfoot>
                           <tr className="border-t-2 border-stone-100">
-                            <td colSpan="3" className="py-6 pl-2 font-black text-stone-800">合計服務人次：{t.count} 次</td>
-                            <td className="py-6 text-right pr-2 font-black text-xl text-stone-900">${t.salary.toLocaleString()}</td>
+                            <td colSpan="3" className="py-3 pl-2 font-black text-stone-800">合計服務人次：{t.count} 次</td>
+                            <td className="py-3 text-right pr-2 font-black text-xl text-stone-900">${t.salary.toLocaleString()}</td>
                           </tr>
                         </tfoot>
                       </table>
@@ -3188,10 +3276,11 @@
                     if (data.accounts) setAccounts(data.accounts);
                     addLog('系統恢復', '從備份檔案匯入資料');
                   }}
+                  setView={setView}
                 />
               )}
-              {view === 'patients' && <PatientsView appointments={appointments} therapists={therapists} treatments={treatments} />}
-              {view === 'reports' && <ReportsView appointments={appointments} therapists={therapists} treatments={treatments} />}
+              {view === 'patients' && <PatientsView appointments={appointments} therapists={therapists} treatments={treatments} setView={setView} />}
+              {view === 'reports' && <ReportsView appointments={appointments} therapists={therapists} treatments={treatments} setView={setView} />}
             </main>
           </div>
         );
