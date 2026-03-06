@@ -139,7 +139,7 @@
       };
 
       // --- Main Views ---
-      const ScheduleView = ({ user, appointments, therapists, treatments, onAdd, onUpdate, onDelete, isSidebarCollapsed, setIsSidebarCollapsed }) => {
+      const ScheduleView = ({ user, appointments, therapists, treatments, onAdd, onUpdate, onDelete, isSidebarCollapsed, setIsSidebarCollapsed, selectedDate, setSelectedDate }) => {
         const [filters, setFilters] = useState({ therapistId: '', category: '', status: '' });
         const [showHistory, setShowHistory] = useState(null); // patientName
         const [showDayDetail, setShowDayDetail] = useState(null); // date string
@@ -160,7 +160,13 @@
         }, [appointments, user, filters]);
 
         const [viewMode, setViewMode] = useState('month');
-        const [selectedDate, setSelectedDate] = useState(format(new Date(), 'yyyy-MM-dd'));
+        const currentSelected = useMemo(() => new Date(selectedDate), [selectedDate]);
+        const dayApts = useMemo(() => filteredAppointments.filter(a => a.date === selectedDate).sort((a,b) => a.time.localeCompare(b.time)), [filteredAppointments, selectedDate]);
+        const getAppointmentsForDate = (dateStr) => filteredAppointments.filter(a => a.date === dateStr).sort((a,b) => a.time.localeCompare(b.time));
+        
+        const weekDays = useMemo(() => eachDayOfInterval({ start: startOfWeek(currentSelected), end: endOfWeek(currentSelected) }), [currentSelected]);
+        const monthDays = useMemo(() => eachDayOfInterval({ start: startOfWeek(startOfMonth(currentSelected)), end: endOfWeek(endOfMonth(currentSelected)) }), [currentSelected]);
+
         const [isAddOpen, setIsAddOpen] = useState(false);
         const [isAddingToGroup, setIsAddingToGroup] = useState(false);
         const [editingApt, setEditingApt] = useState(null);
@@ -171,6 +177,51 @@
           patientName: '', time: '09:00', date: '', therapistId: '', treatmentId: '', 
           notes: '', treatmentRoom: '二診', category: '心理'
         });
+
+        // --- 團體與個別治療分組邏輯 ---
+        const groupedApts = useMemo(() => {
+          const groups = {};
+          dayApts.forEach(apt => {
+            const tr = treatments.find(t => t.id === apt.treatmentId);
+            const isGroup = apt.isGroup || tr?.isGroupTherapy;
+            
+            // 為了避免日表格介面重疊，依時間與診間分組
+            // 如果同一時段診間有兩筆(例如一筆報到一筆請假)，會合併在同一個卡片中呈現
+            const key = `${apt.time}_${apt.treatmentRoom}`;
+
+            if (!groups[key]) {
+              groups[key] = {
+                id: key,
+                time: apt.time,
+                therapistId: apt.therapistId,
+                treatmentId: apt.treatmentId,
+                treatmentRoom: apt.treatmentRoom,
+                notes: apt.notes,
+                isGroup: isGroup,
+                patients: []
+              };
+            } else {
+              // 若其中一筆是團體治療，則整組標記為團體
+              if (isGroup) groups[key].isGroup = true;
+            }
+            groups[key].patients.push(apt);
+          });
+          
+          // 排序：將「請假」或「取消」的預約排在後面，已報到/預約中的排在前面
+          Object.values(groups).forEach(group => {
+            group.patients.sort((a, b) => {
+              const statusOrder = { 'completed': 0, 'scheduled': 1, 'noshow': 2, 'leave': 3, 'cancelled': 4 };
+              return (statusOrder[a.status || 'scheduled'] || 1) - (statusOrder[b.status || 'scheduled'] || 1);
+            });
+            // 更新 group 的主項目資訊為排序後第一筆預約的資訊
+            if (group.patients.length > 0) {
+              group.treatmentId = group.patients[0].treatmentId;
+              group.therapistId = group.patients[0].therapistId;
+            }
+          });
+
+          return Object.values(groups).sort((a, b) => a.time.localeCompare(b.time));
+        }, [dayApts, treatments]);
 
         const [showPatientSuggestions, setShowPatientSuggestions] = useState(false);
         const patientNames = useMemo(() => [...new Set(appointments.map(a => a.patientName))].sort(), [appointments]);
@@ -363,59 +414,6 @@
             </div>
           );
         };
-
-        const currentSelected = useMemo(() => new Date(selectedDate), [selectedDate]);
-        const dayApts = useMemo(() => filteredAppointments.filter(a => a.date === selectedDate).sort((a,b) => a.time.localeCompare(b.time)), [filteredAppointments, selectedDate]);
-        
-        // --- 團體與個別治療分組邏輯 ---
-        const groupedApts = useMemo(() => {
-          const groups = {};
-          dayApts.forEach(apt => {
-            const tr = treatments.find(t => t.id === apt.treatmentId);
-            const isGroup = apt.isGroup || tr?.isGroupTherapy;
-            
-            // 為了避免日表格介面重疊，依時間與診間分組
-            // 如果同一時段診間有兩筆(例如一筆報到一筆請假)，會合併在同一個卡片中呈現
-            const key = `${apt.time}_${apt.treatmentRoom}`;
-
-            if (!groups[key]) {
-              groups[key] = {
-                id: key,
-                time: apt.time,
-                therapistId: apt.therapistId,
-                treatmentId: apt.treatmentId,
-                treatmentRoom: apt.treatmentRoom,
-                notes: apt.notes,
-                isGroup: isGroup,
-                patients: []
-              };
-            } else {
-              // 若其中一筆是團體治療，則整組標記為團體
-              if (isGroup) groups[key].isGroup = true;
-            }
-            groups[key].patients.push(apt);
-          });
-          
-          // 排序：將「請假」或「取消」的預約排在後面，已報到/預約中的排在前面
-          Object.values(groups).forEach(group => {
-            group.patients.sort((a, b) => {
-              const statusOrder = { 'completed': 0, 'scheduled': 1, 'noshow': 2, 'leave': 3, 'cancelled': 4 };
-              return (statusOrder[a.status || 'scheduled'] || 1) - (statusOrder[b.status || 'scheduled'] || 1);
-            });
-            // 更新 group 的主項目資訊為排序後第一筆預約的資訊
-            if (group.patients.length > 0) {
-              group.treatmentId = group.patients[0].treatmentId;
-              group.therapistId = group.patients[0].therapistId;
-            }
-          });
-
-          return Object.values(groups).sort((a, b) => a.time.localeCompare(b.time));
-        }, [dayApts, treatments]);
-
-        const weekDays = useMemo(() => eachDayOfInterval({ start: startOfWeek(currentSelected), end: endOfWeek(currentSelected) }), [currentSelected]);
-        const monthDays = useMemo(() => eachDayOfInterval({ start: startOfWeek(startOfMonth(currentSelected)), end: endOfWeek(endOfMonth(currentSelected)) }), [currentSelected]);
-
-        const getAppointmentsForDate = (dateStr) => filteredAppointments.filter(a => a.date === dateStr).sort((a,b) => a.time.localeCompare(b.time));
 
         const handleSave = (e) => {
           e.preventDefault();
@@ -1091,59 +1089,50 @@
             )}
 
             {viewMode === 'month' && (
-              <div className="bg-white p-6 rounded-[2.5rem] border border-stone-100 shadow-sm overflow-hidden">
-                <div className="grid gap-2 mb-4 text-center text-[10px] font-black text-stone-400 uppercase tracking-widest" style={{ gridTemplateColumns: '0.25fr repeat(6, 1fr)' }}>
-                  {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((d, i) => (
-                    <div key={d} className={i === 0 ? 'text-red-400' : i === 6 ? 'text-blue-400' : ''}>{d}</div>
+              <div className="bg-white rounded-2xl border border-stone-200 shadow-sm overflow-hidden flex flex-col">
+                {/* Days of week header */}
+                <div className="grid grid-cols-7 border-b border-stone-200 bg-stone-50/50">
+                  {['週日', '週一', '週二', '週三', '週四', '週五', '週六'].map((d, i) => (
+                    <div key={d} className={`py-2 text-center text-[11px] font-bold uppercase tracking-wider border-r border-stone-200 last:border-r-0 ${i === 0 ? 'text-red-500' : i === 6 ? 'text-blue-500' : 'text-stone-500'}`}>
+                      {d}
+                    </div>
                   ))}
                 </div>
-                <div className="grid gap-2 md:gap-3" style={{ gridTemplateColumns: '0.25fr repeat(6, 1fr)' }}>
-                  {monthDays.map(day => {
+                {/* Calendar grid */}
+                <div className="grid grid-cols-7 auto-rows-fr bg-stone-200 gap-px">
+                  {monthDays.map((day, idx) => {
                     const ds = format(day, 'yyyy-MM-dd');
                     const dayApts = getAppointmentsForDate(ds).sort((a,b) => a.time.localeCompare(b.time));
                     const isCurMonth = isSameMonth(day, currentSelected);
                     const isExpanded = expandedDays[ds];
-                    const maxVisible = 6;
+                    const maxVisible = 4;
                     const visibleApts = isExpanded ? dayApts : dayApts.slice(0, maxVisible);
+                    const hasMore = dayApts.length > maxVisible;
                     
                     return (
                       <div 
                         key={ds} 
-                        className={`min-h-[140px] p-2 rounded-3xl border transition-all relative flex flex-col items-start justify-start ${!isCurMonth ? 'bg-stone-50 opacity-20' : getDayStyleClass(day)} hover:shadow-2xl hover:-translate-y-2 hover:border-brand-orange hover:border-4 hover:z-10 ${isExpanded ? 'h-auto overflow-visible' : 'overflow-hidden'}`}
+                        onClick={() => {
+                          setEditingApt(null);
+                          setForm({
+                            patientName: '', time: '09:00', date: ds, therapistId: '', treatmentId: '', 
+                            notes: '', treatmentRoom: '二診', category: '心理'
+                          });
+                          setIsAddOpen(true);
+                        }}
+                        className={`min-h-[120px] bg-white p-1.5 transition-colors cursor-pointer hover:bg-stone-50 flex flex-col relative ${!isCurMonth ? 'opacity-40' : ''} ${isExpanded ? 'z-10 shadow-xl scale-105 rounded-xl border border-stone-200' : ''}`}
                       >
-                        <div className="flex justify-between items-center w-full mb-1">
-                          <span className={`text-sm font-black w-7 h-7 flex items-center justify-center rounded-full ${isToday(day) ? 'bg-brand-orange text-white ring-4 ring-brand-orange/20' : ''}`}>
+                        <div className="flex justify-center mb-1">
+                          <span className={`text-xs font-bold w-6 h-6 flex items-center justify-center rounded-full ${isToday(day) ? 'bg-brand-orange text-white' : 'text-stone-700'}`}>
                             {format(day, 'd')}
                           </span>
-                          {user?.role !== 'therapist' && (
-                            <button 
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setEditingApt(null);
-                                setForm({
-                                  patientName: '',
-                                  time: '09:00',
-                                  date: ds,
-                                  therapistId: '',
-                                  treatmentId: '',
-                                  notes: '',
-                                  treatmentRoom: '二診',
-                                  category: '心理'
-                                });
-                                setIsAddOpen(true);
-                              }}
-                              className="p-1 hover:bg-black/5 rounded-lg text-brand-orange transition-colors cursor-pointer"
-                              title="新增預約"
-                            >
-                              <Plus size={14} />
-                            </button>
-                          )}
                         </div>
                         
-                        <div className="w-full space-y-0.5">
+                        <div className="flex flex-col gap-0.5 flex-1">
                           {visibleApts.map(a => {
                             const therapist = therapists.find(t => t.id === a.therapistId);
                             const treatment = treatments.find(t => t.id === a.treatmentId);
+                            const config = STATUS_CONFIG[a.status || 'scheduled'] || STATUS_CONFIG['scheduled'];
                             return (
                               <div 
                                 key={a.id} 
@@ -1151,32 +1140,33 @@
                                   e.stopPropagation();
                                   setShowAptDetail(a);
                                 }}
-                                className="text-[10px] leading-tight flex items-center gap-1 truncate text-stone-600 font-medium hover:bg-brand-orange/10 rounded px-0.5 transition-colors cursor-pointer"
+                                className={`text-[10px] leading-tight flex items-center gap-1 truncate rounded px-1 py-0.5 transition-colors hover:opacity-80 ${config.bg} ${config.text}`}
+                                title={`${a.time} ${a.patientName} (${therapist?.name} ${treatment?.name})`}
                               >
-                                <span className={`font-black shrink-0 ${STATUS_CONFIG[a.status || 'scheduled'].text}`}>{a.time}</span>
-                                <span className="truncate font-bold">{a.patientName}</span>
-                                <span className="text-stone-400 shrink-0 truncate">({therapist?.name} {treatment?.name})</span>
+                                <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${config.dot}`}></div>
+                                <span className="font-bold shrink-0">{a.time}</span>
+                                <span className="truncate font-medium">{a.patientName}</span>
                               </div>
                             );
                           })}
-                          {dayApts.length > maxVisible && !isExpanded && (
+                          {!isExpanded && hasMore && (
                             <div 
                               onClick={(e) => {
                                 e.stopPropagation();
                                 setExpandedDays(prev => ({ ...prev, [ds]: true }));
                               }}
-                              className="text-[10px] font-black text-stone-300 mt-0.5 hover:text-brand-orange transition-colors cursor-pointer"
+                              className="text-[10px] font-bold text-stone-500 hover:text-stone-800 hover:bg-stone-100 rounded px-1 py-0.5 mt-auto transition-colors"
                             >
                               還有 {dayApts.length - maxVisible} 筆...
                             </div>
                           )}
-                          {isExpanded && dayApts.length > maxVisible && (
+                          {isExpanded && hasMore && (
                             <div 
                               onClick={(e) => {
                                 e.stopPropagation();
                                 setExpandedDays(prev => ({ ...prev, [ds]: false }));
                               }}
-                              className="text-[10px] font-black text-stone-300 mt-1 hover:text-brand-orange transition-colors cursor-pointer border-t border-stone-100 pt-1"
+                              className="text-[10px] font-bold text-stone-500 hover:text-stone-800 hover:bg-stone-100 rounded px-1 py-0.5 mt-auto transition-colors text-center"
                             >
                               收起
                             </div>
@@ -2058,6 +2048,305 @@
         );
       };
 
+      // --- Dashboard View ---
+      const DashboardView = ({ user, appointments, therapists, treatments, setView, setSelectedDate }) => {
+        const today = format(new Date(), 'yyyy-MM-dd');
+        const todayApts = useMemo(() => 
+          appointments.filter(a => a.date === today).sort((a, b) => a.time.localeCompare(b.time)),
+        [appointments, today]);
+
+        const nextApts = useMemo(() => {
+          const now = format(new Date(), 'HH:mm');
+          return todayApts.filter(a => a.time >= now && a.status === 'scheduled').slice(0, 5);
+        }, [todayApts]);
+
+        const stats = useMemo(() => {
+          const s = { total: 0, completed: 0, revenue: 0, pending: 0 };
+          todayApts.forEach(a => {
+            s.total++;
+            if (a.status === 'completed') {
+              s.completed++;
+              s.revenue += (a.patientPrice || 0);
+            } else if (a.status === 'scheduled') {
+              s.pending++;
+            }
+          });
+          return s;
+        }, [todayApts]);
+
+        return (
+          <div className="space-y-8 pb-20">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div>
+                <h2 className="text-3xl font-black text-stone-800 tracking-tight">您好，{user.name}</h2>
+                <p className="text-stone-400 font-bold mt-1">今天是 {format(new Date(), 'yyyy年MM月dd日')}，這是今日的診所概況</p>
+              </div>
+              <div className="flex gap-3">
+                <Button onClick={() => { setView('schedule'); setSelectedDate(today); }} className="h-12 px-6 rounded-2xl shadow-lg">
+                  <Plus size={18} className="mr-2" /> 快速預約
+                </Button>
+              </div>
+            </div>
+
+            {/* Stats Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="bg-white p-6 rounded-[2.5rem] border border-stone-100 shadow-sm">
+                <p className="text-[10px] font-black text-stone-400 uppercase tracking-widest mb-1">今日總預約</p>
+                <p className="text-2xl font-black text-stone-800">{stats.total} <span className="text-sm font-bold text-stone-400">診</span></p>
+                <div className="mt-2 flex items-center gap-1 text-[10px] font-bold text-stone-400 bg-stone-50 w-fit px-2 py-0.5 rounded-full">
+                  <Calendar size={10} /> 預約總數
+                </div>
+              </div>
+              <div className="bg-white p-6 rounded-[2.5rem] border border-stone-100 shadow-sm">
+                <p className="text-[10px] font-black text-stone-400 uppercase tracking-widest mb-1">待看診人數</p>
+                <p className="text-2xl font-black text-brand-orange">{stats.pending} <span className="text-sm font-bold text-stone-400">人</span></p>
+                <div className="mt-2 flex items-center gap-1 text-[10px] font-bold text-brand-orange bg-brand-orange/5 w-fit px-2 py-0.5 rounded-full">
+                  <Activity size={10} /> 進行中
+                </div>
+              </div>
+              <div className="bg-white p-6 rounded-[2.5rem] border border-stone-100 shadow-sm">
+                <p className="text-[10px] font-black text-stone-400 uppercase tracking-widest mb-1">今日已完成</p>
+                <p className="text-2xl font-black text-emerald-600">{stats.completed} <span className="text-sm font-bold text-stone-400">診</span></p>
+                <div className="mt-2 flex items-center gap-1 text-[10px] font-bold text-emerald-500 bg-emerald-50 w-fit px-2 py-0.5 rounded-full">
+                  <CheckCircle size={10} /> 結案
+                </div>
+              </div>
+              <div className="bg-white p-6 rounded-[2.5rem] border border-stone-100 shadow-sm">
+                <p className="text-[10px] font-black text-stone-400 uppercase tracking-widest mb-1">今日實收金額</p>
+                <p className="text-2xl font-black text-stone-800">${stats.revenue.toLocaleString()}</p>
+                <div className="mt-2 flex items-center gap-1 text-[10px] font-bold text-stone-400 bg-stone-50 w-fit px-2 py-0.5 rounded-full">
+                  <Banknote size={10} /> 營收統計
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+              {/* Upcoming Appointments */}
+              <div className="lg:col-span-2 space-y-4">
+                <div className="flex items-center justify-between px-2">
+                  <h3 className="text-xl font-black text-stone-800 flex items-center gap-2">
+                    <Zap size={20} className="text-brand-orange" /> 即將到來
+                  </h3>
+                  <button onClick={() => setView('schedule')} className="text-xs font-black text-brand-orange hover:underline">查看完整排程</button>
+                </div>
+                <div className="space-y-3">
+                  {nextApts.map(a => {
+                    const tr = treatments.find(t => t.id === a.treatmentId);
+                    const th = therapists.find(t => t.id === a.therapistId);
+                    return (
+                      <div key={a.id} className="bg-white p-5 rounded-[2rem] border border-stone-100 shadow-sm flex items-center justify-between hover:shadow-md transition-all">
+                        <div className="flex items-center gap-4">
+                          <div className="bg-stone-900 text-white px-3 py-1.5 rounded-xl font-black text-xs shadow-lg">
+                            {a.time}
+                          </div>
+                          <div>
+                            <p className="font-black text-stone-800">{a.patientName}</p>
+                            <p className="text-[10px] font-bold text-stone-400 uppercase tracking-widest">{tr?.name} · {th?.name}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <span className="text-[10px] font-black text-stone-400 bg-stone-50 px-3 py-1 rounded-full uppercase tracking-widest">{a.treatmentRoom}</span>
+                          <ChevronRight size={16} className="text-stone-200" />
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {nextApts.length === 0 && (
+                    <div className="bg-white p-12 rounded-[2.5rem] border border-stone-100 text-center">
+                      <Coffee size={32} className="mx-auto text-stone-100 mb-3" />
+                      <p className="text-stone-400 font-bold text-sm">今日目前無後續預約</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Quick Access / Tips */}
+              <div className="space-y-6">
+                <div className="bg-stone-900 rounded-[2.5rem] p-8 text-white shadow-2xl relative overflow-hidden">
+                  <div className="relative z-10">
+                    <h3 className="text-xl font-black mb-2">快速操作</h3>
+                    <p className="text-stone-400 text-xs font-bold mb-6">常用功能捷徑</p>
+                    <div className="grid grid-cols-1 gap-3">
+                      <button onClick={() => setView('schedule')} className="w-full py-4 bg-white/10 hover:bg-white/20 rounded-2xl flex items-center gap-4 px-6 transition-all">
+                        <div className="w-8 h-8 bg-brand-orange rounded-xl flex items-center justify-center shadow-lg shadow-brand-orange/20">
+                          <Plus size={16} />
+                        </div>
+                        <span className="text-sm font-black">新增預約</span>
+                      </button>
+                      <button onClick={() => setView('patients')} className="w-full py-4 bg-white/10 hover:bg-white/20 rounded-2xl flex items-center gap-4 px-6 transition-all">
+                        <div className="w-8 h-8 bg-blue-500 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/20">
+                          <Users size={16} />
+                        </div>
+                        <span className="text-sm font-black">尋找個案</span>
+                      </button>
+                      {user.role === 'admin' && (
+                        <button onClick={() => setView('reports')} className="w-full py-4 bg-white/10 hover:bg-white/20 rounded-2xl flex items-center gap-4 px-6 transition-all">
+                          <div className="w-8 h-8 bg-emerald-500 rounded-xl flex items-center justify-center shadow-lg shadow-emerald-500/20">
+                            <ChartColumn size={16} />
+                          </div>
+                          <span className="text-sm font-black">查看報表</span>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                  <div className="absolute -bottom-10 -right-10 opacity-10">
+                    <JialeLogo className="w-48 h-48" />
+                  </div>
+                </div>
+
+                <div className="bg-brand-yellow/10 border border-brand-yellow/20 rounded-[2.5rem] p-6">
+                  <h4 className="font-black text-stone-800 flex items-center gap-2 mb-3">
+                    <Info size={18} className="text-brand-orange" /> 系統提醒
+                  </h4>
+                  <ul className="space-y-3">
+                    <li className="flex gap-3">
+                      <div className="w-1.5 h-1.5 rounded-full bg-brand-orange mt-1.5 shrink-0"></div>
+                      <p className="text-[11px] font-bold text-stone-600 leading-relaxed">記得在看診結束後，將預約狀態更新為「已完成」以利薪資統計。</p>
+                    </li>
+                    <li className="flex gap-3">
+                      <div className="w-1.5 h-1.5 rounded-full bg-brand-orange mt-1.5 shrink-0"></div>
+                      <p className="text-[11px] font-bold text-stone-600 leading-relaxed">雲端同步功能正常運作中，所有變更將即時儲存。</p>
+                    </li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      };
+
+      // --- Patients View ---
+      const PatientsView = ({ appointments, therapists, treatments }) => {
+        const [searchTerm, setSearchTerm] = useState('');
+        const [showHistory, setShowHistory] = useState(null);
+
+        const patientStats = useMemo(() => {
+          const stats = {};
+          appointments.forEach(a => {
+            if (!stats[a.patientName]) {
+              stats[a.patientName] = {
+                name: a.patientName,
+                totalVisits: 0,
+                lastVisit: '',
+                firstVisit: '',
+                completedVisits: 0,
+                cancelledVisits: 0,
+                totalSpent: 0
+              };
+            }
+            const s = stats[a.patientName];
+            s.totalVisits += 1;
+            if (a.status === 'completed') {
+              s.completedVisits += 1;
+              s.totalSpent += (a.patientPrice || 0);
+            } else if (a.status === 'leave' || a.status === 'cancelled' || a.status === 'noshow') {
+              s.cancelledVisits += 1;
+            }
+
+            if (!s.lastVisit || a.date > s.lastVisit) s.lastVisit = a.date;
+            if (!s.firstVisit || a.date < s.firstVisit) s.firstVisit = a.date;
+          });
+          return Object.values(stats).sort((a, b) => b.lastVisit.localeCompare(a.lastVisit));
+        }, [appointments]);
+
+        const filteredPatients = patientStats.filter(p => 
+          p.name.toLowerCase().includes(searchTerm.toLowerCase())
+        );
+
+        return (
+          <div className="space-y-6 pb-20">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div>
+                <h2 className="text-3xl font-black text-stone-800 tracking-tight">個案管理中心</h2>
+                <p className="text-stone-400 font-bold mt-1">管理所有個案的預約紀錄與統計</p>
+              </div>
+              <div className="relative max-w-md w-full">
+                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-400">
+                  <UsersIcon size={20} />
+                </div>
+                <input 
+                  type="text" 
+                  placeholder="搜尋個案姓名..." 
+                  className="w-full h-14 pl-12 pr-6 rounded-[2rem] border-2 border-stone-100 bg-white font-bold outline-none focus:border-brand-orange transition-all shadow-sm"
+                  value={searchTerm}
+                  onChange={e => setSearchTerm(e.target.value)}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4">
+              {filteredPatients.map(p => (
+                <div key={p.name} className="bg-white p-6 rounded-[2.5rem] border border-stone-100 shadow-sm hover:shadow-md transition-all flex flex-col md:flex-row md:items-center justify-between gap-6">
+                  <div className="flex items-center gap-4">
+                    <div className="w-14 h-14 rounded-2xl bg-stone-50 text-stone-400 flex items-center justify-center font-black text-xl border border-stone-100">
+                      {p.name.charAt(0)}
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-black text-stone-800">{p.name}</h3>
+                      <div className="flex items-center gap-3 mt-1">
+                        <span className="text-[10px] font-black text-stone-400 uppercase tracking-widest">首次：{p.firstVisit}</span>
+                        <span className="text-[10px] font-black text-brand-orange uppercase tracking-widest">最後：{p.lastVisit}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-8 md:px-8 md:border-x border-stone-50">
+                    <div className="text-center">
+                      <p className="text-[10px] font-black text-stone-400 uppercase tracking-widest mb-1">總預約</p>
+                      <p className="text-lg font-black text-stone-800">{p.totalVisits}</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-[10px] font-black text-stone-400 uppercase tracking-widest mb-1">已完成</p>
+                      <p className="text-lg font-black text-emerald-600">{p.completedVisits}</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-[10px] font-black text-stone-400 uppercase tracking-widest mb-1">總消費</p>
+                      <p className="text-lg font-black text-stone-800">${p.totalSpent.toLocaleString()}</p>
+                    </div>
+                  </div>
+
+                  <Button 
+                    variant="secondary" 
+                    onClick={() => setShowHistory(p.name)}
+                    className="h-12 px-8 rounded-2xl bg-stone-50 border-stone-100 text-stone-600 hover:bg-stone-100"
+                  >
+                    查看歷程
+                  </Button>
+                </div>
+              ))}
+              {filteredPatients.length === 0 && (
+                <div className="py-32 text-center bg-white rounded-[3rem] border border-stone-100">
+                  <Coffee size={48} className="mx-auto text-stone-100 mb-4" />
+                  <p className="text-stone-400 font-bold">找不到相關個案資料</p>
+                </div>
+              )}
+            </div>
+
+            {/* Patient History Modal */}
+            <Modal isOpen={!!showHistory} onClose={() => setShowHistory(null)} title={`${showHistory} 的預約歷程`}>
+              <div className="space-y-4">
+                {appointments.filter(a => a.patientName === showHistory).sort((a,b) => (b.date + b.time).localeCompare(a.date + a.time)).map(a => {
+                  const tr = treatments.find(t => t.id === a.treatmentId);
+                  const config = STATUS_CONFIG[a.status || 'scheduled'];
+                  return (
+                    <div key={a.id} className={`p-4 rounded-2xl border ${config.bg} ${config.border} flex justify-between items-center`}>
+                      <div>
+                        <p className="text-xs font-black text-stone-800">{a.date} {a.time}</p>
+                        <p className="text-[10px] font-bold text-stone-500">{tr?.name}</p>
+                      </div>
+                      <div className="text-right">
+                        <span className={`text-[10px] font-black ${config.text}`}>{config.label}</span>
+                        <p className="text-[10px] font-black text-brand-orange">${a.patientPrice}</p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </Modal>
+          </div>
+        );
+      };
+
       // --- Reports View ---
       const ReportsView = ({ appointments, therapists, treatments }) => {
         const [selectedMonth, setSelectedMonth] = useState(format(new Date(), 'yyyy-MM'));
@@ -2450,7 +2739,8 @@
 
       const App = () => {
         const [user, setUser] = useState(null);
-        const [view, setView] = useState('schedule');
+        const [view, setView] = useState('dashboard');
+        const [selectedDate, setSelectedDate] = useState(format(new Date(), 'yyyy-MM-dd'));
         const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
         const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(true);
         const [syncStatus, setSyncStatus] = useState('connecting'); // connecting, synced, error
@@ -2606,7 +2896,9 @@
                 </button>
               </div>
               <nav className="p-6 space-y-2 flex-1">
+                <button onClick={() => { setView('dashboard'); setIsMobileMenuOpen(false); setIsSidebarCollapsed(true); }} className={`w-full flex items-center gap-4 px-6 py-4 rounded-3xl text-sm font-black transition-all ${view === 'dashboard' ? 'bg-brand-orange text-white shadow-lg' : 'text-stone-500 hover:text-brand-yellow'}`}><Activity size={20}/> 儀表板</button>
                 <button onClick={() => { setView('schedule'); setIsMobileMenuOpen(false); setIsSidebarCollapsed(true); }} className={`w-full flex items-center gap-4 px-6 py-4 rounded-3xl text-sm font-black transition-all ${view === 'schedule' ? 'bg-brand-orange text-white shadow-lg' : 'text-stone-500 hover:text-brand-yellow'}`}><Calendar size={20}/> 預約排程</button>
+                <button onClick={() => { setView('patients'); setIsMobileMenuOpen(false); setIsSidebarCollapsed(true); }} className={`w-full flex items-center gap-4 px-6 py-4 rounded-3xl text-sm font-black transition-all ${view === 'patients' ? 'bg-brand-orange text-white shadow-lg' : 'text-stone-500 hover:text-brand-yellow'}`}><Users size={20}/> 個案管理</button>
                 {user.role === 'admin' && (
                   <>
                     <button onClick={() => { setView('reports'); setIsMobileMenuOpen(false); setIsSidebarCollapsed(true); }} className={`w-full flex items-center gap-4 px-6 py-4 rounded-3xl text-sm font-black transition-all ${view === 'reports' ? 'bg-brand-orange text-white shadow-lg' : 'text-stone-500 hover:text-brand-yellow'}`}><ChartColumn size={20}/> 數據報表</button>
@@ -2633,6 +2925,16 @@
               )}
 
             <main className="flex-1 p-4 lg:p-8 min-h-screen max-w-full mx-auto overflow-x-hidden w-full print:p-0 print:m-0 print:max-w-none print:overflow-visible">
+              {view === 'dashboard' && (
+                <DashboardView 
+                  user={user} 
+                  appointments={appointments} 
+                  therapists={therapists} 
+                  treatments={treatments} 
+                  setView={setView}
+                  setSelectedDate={setSelectedDate}
+                />
+              )}
               {view === 'schedule' && (
                 <ScheduleView 
                   user={user}
@@ -2641,6 +2943,8 @@
                   treatments={treatments} 
                   isSidebarCollapsed={isSidebarCollapsed}
                   setIsSidebarCollapsed={setIsSidebarCollapsed}
+                  selectedDate={selectedDate}
+                  setSelectedDate={setSelectedDate}
                   onAdd={x => { 
                     if (Array.isArray(x)) {
                       setAppointments(prev => [...prev, ...x]);
@@ -2691,6 +2995,7 @@
                   }}
                 />
               )}
+              {view === 'patients' && <PatientsView appointments={appointments} therapists={therapists} treatments={treatments} />}
               {view === 'reports' && <ReportsView appointments={appointments} therapists={therapists} treatments={treatments} />}
             </main>
           </div>
