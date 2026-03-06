@@ -1629,16 +1629,23 @@
             <Modal isOpen={!!groupCopyModal} onClose={() => setGroupCopyModal(null)} title="複製團體治療">
               <form onSubmit={(e) => {
                 e.preventDefault();
+                if (!groupCopyModal || !groupCopyForm.startDate) return;
+
                 const newApts = [];
-                let currentDate = new Date(groupCopyForm.startDate);
+                // Use T00:00:00 to avoid timezone shifts
+                let currentDate = new Date(groupCopyForm.startDate + 'T00:00:00');
+                if (isNaN(currentDate.getTime())) return;
                 
                 for (let i = 0; i < groupCopyForm.weeks; i++) {
                   const dateStr = format(currentDate, 'yyyy-MM-dd');
                   
                   groupCopyModal.patients.forEach(p => {
+                    const originalApt = appointments.find(apt => apt.id === p.id);
+                    if (!originalApt) return;
+
                     newApts.push({
-                      ...p,
-                      id: `apt_${Date.now()}_${Math.random()}`,
+                      ...originalApt,
+                      id: `apt_${Date.now()}_${i}_${Math.random()}`,
                       date: dateStr,
                       time: groupCopyForm.time,
                       status: 'scheduled',
@@ -1657,7 +1664,7 @@
                   <p className="text-xs font-black text-brand-orange mb-1">將複製以下內容：</p>
                   <p className="text-sm font-bold text-stone-700">
                     {treatments.find(t => t.id === groupCopyModal?.treatmentId)?.name} 
-                    ({groupCopyModal?.patients.length} 位個案)
+                    ({groupCopyModal?.patients?.length || 0} 位個案)
                   </p>
                   <p className="text-[10px] text-stone-500 mt-1">
                     治療師：{therapists.find(t => t.id === groupCopyModal?.therapistId)?.name} | 
@@ -1685,7 +1692,7 @@
                   <p className="text-[10px] text-stone-400 mt-2 ml-2">將從起始日期開始，每週同一時間自動建立預約。</p>
                 </div>
                 
-                <Button type="submit" size="lg" className="w-full mt-4 h-14">確認複製 ({groupCopyModal?.patients.length * groupCopyForm.weeks || 0} 筆預約)</Button>
+                <Button type="submit" size="lg" className="w-full mt-4 h-14">確認複製 ({(groupCopyModal?.patients?.length || 0) * groupCopyForm.weeks} 筆預約)</Button>
               </form>
             </Modal>
 
@@ -3130,14 +3137,18 @@
                     }
                   }} 
                   onUpdate={(id, u) => { 
-                    const old = appointments.find(a => a.id === id);
-                    setAppointments(appointments.map(a => a.id === id ? { ...a, ...u } : a)); 
-                    addLog('更新預約', `個案: ${old?.patientName}, 變更: ${JSON.stringify(u)}`);
+                    setAppointments(prev => {
+                      const old = prev.find(a => a.id === id);
+                      if (old) addLog('更新預約', `個案: ${old.patientName}, 變更: ${JSON.stringify(u)}`);
+                      return prev.map(a => a.id === id ? { ...a, ...u } : a);
+                    });
                   }} 
                   onDelete={id => { 
-                    const old = appointments.find(a => a.id === id);
-                    setAppointments(appointments.filter(a => a.id !== id)); 
-                    addLog('刪除預約', `個案: ${old?.patientName}, 日期: ${old?.date}`);
+                    setAppointments(prev => {
+                      const old = prev.find(a => a.id === id);
+                      if (old) addLog('刪除預約', `個案: ${old.patientName}, 日期: ${old.date}`);
+                      return prev.filter(a => a.id !== id);
+                    });
                   }} 
                 />
               )}
