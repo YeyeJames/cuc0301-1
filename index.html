@@ -152,6 +152,7 @@
         const [showHistory, setShowHistory] = useState(null); // patientName
         const [showDayDetail, setShowDayDetail] = useState(null); // date string
         const [showAptDetail, setShowAptDetail] = useState(null); // appointment object
+        const [showGroupDetail, setShowGroupDetail] = useState(null); // group object
         const [expandedDays, setExpandedDays] = useState({}); // { [dateStr]: boolean }
         const [groupCopyModal, setGroupCopyModal] = useState(null);
         const [groupCopyForm, setGroupCopyForm] = useState({ startDate: '', time: '', weeks: 1 });
@@ -1130,6 +1131,7 @@
                     const ds = format(day, 'yyyy-MM-dd');
                     const dayApts = getAppointmentsForDate(ds);
                     const isCurMonth = isSameMonth(day, currentSelected);
+                    const isHovered = hoveredDay === ds;
                     
                     // Grouping for aggregation
                     const grouped = [];
@@ -1139,11 +1141,12 @@
                       if (tr?.isGroupTherapy) {
                         const key = `${a.time}-${a.treatmentRoom}-${a.treatmentId}`;
                         if (!groupMap[key]) {
-                          groupMap[key] = { ...a, isGroup: true, count: 0, ids: [] };
+                          groupMap[key] = { ...a, isGroup: true, count: 0, ids: [], patients: [] };
                           grouped.push(groupMap[key]);
                         }
                         groupMap[key].count += 1;
                         groupMap[key].ids.push(a.id);
+                        groupMap[key].patients.push({ id: a.id, name: a.patientName, status: a.status });
                       } else {
                         grouped.push({ ...a, isGroup: false });
                       }
@@ -1151,7 +1154,7 @@
                     grouped.sort((a, b) => a.time.localeCompare(b.time));
 
                     const maxVisible = 8;
-                    const visibleApts = grouped.slice(0, maxVisible);
+                    const visibleApts = isHovered ? grouped : grouped.slice(0, maxVisible);
                     const hasMore = grouped.length > maxVisible;
                     
                     return (
@@ -1167,7 +1170,7 @@
                           });
                           setIsAddOpen(true);
                         }}
-                        className={`min-h-[140px] bg-white p-1 transition-colors cursor-pointer hover:bg-stone-50 flex flex-col relative ${!isCurMonth ? 'opacity-20' : ''}`}
+                        className={`min-h-[140px] bg-white p-1 transition-all cursor-pointer hover:bg-stone-50 flex flex-col relative ${!isCurMonth ? 'opacity-20' : ''} ${isHovered ? 'z-[100] ring-4 ring-brand-orange/20 shadow-2xl scale-[1.02] rounded-xl' : ''}`}
                       >
                         <div className="flex justify-center mb-1">
                           <span className={`text-xs font-black w-6 h-6 flex items-center justify-center rounded-full transition-all ${isToday(day) ? 'bg-brand-orange text-white shadow-lg shadow-brand-orange/40 animate-pulse-orange' : 'text-stone-700'}`}>
@@ -1175,7 +1178,7 @@
                           </span>
                         </div>
                         
-                        <div className="flex flex-col gap-0.5 flex-1 overflow-hidden">
+                        <div className={`flex flex-col gap-0.5 flex-1 ${isHovered ? 'overflow-y-auto max-h-[300px] no-scrollbar' : 'overflow-hidden'}`}>
                           {visibleApts.map((a, i) => {
                             const therapist = therapists.find(t => t.id === a.therapistId);
                             const treatment = treatments.find(t => t.id === a.treatmentId);
@@ -1188,7 +1191,7 @@
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   if (!a.isGroup) setShowAptDetail(a);
-                                  else setShowDayDetail(ds);
+                                  else setShowGroupDetail(a);
                                 }}
                                 onContextMenu={(e) => {
                                   if (!a.isGroup) {
@@ -1198,7 +1201,6 @@
                                   }
                                 }}
                                 className={`text-[10px] leading-none flex items-center gap-1 rounded-sm py-0.5 pr-1 transition-all hover:brightness-95 border-l-[3px] ${tColor.replace('bg-', 'border-')} ${config.bg} ${config.text} ${config.strikethrough ? 'line-through opacity-60' : ''} ${a.isGroup ? 'border-dashed border-2' : 'border-stone-100'}`}
-                                title={`${a.time} ${a.patientName} (${therapist?.name} ${treatment?.name})`}
                               >
                                 <div className={`w-3 h-3 rounded-full shrink-0 flex items-center justify-center text-[8px] text-white font-black ${tColor}`}>
                                   {therapist?.name?.charAt(0)}
@@ -1209,7 +1211,7 @@
                               </div>
                             );
                           })}
-                          {hasMore && (
+                          {!isHovered && hasMore && (
                             <div className="text-[9px] font-black text-stone-400 text-center mt-auto py-0.5 bg-stone-50 rounded">
                               還有 {grouped.length - maxVisible} 筆...
                             </div>
@@ -1219,43 +1221,103 @@
                     );
                   })}
                 </div>
+              </div>
+            )}
 
-                {/* Hover Popover */}
-                {hoveredDay && getAppointmentsForDate(hoveredDay).length > 0 && (
-                  <div 
-                    className="fixed z-[100] bg-white rounded-2xl shadow-2xl border border-stone-200 p-4 w-64 pointer-events-none"
-                    style={{ 
-                      top: '50%', 
-                      left: '50%', 
-                      transform: 'translate(-50%, -50%)' 
-                    }}
-                  >
-                    <h4 className="text-sm font-black text-stone-800 mb-3 flex items-center justify-between">
-                      {hoveredDay} 預約清單
-                      <span className="text-[10px] bg-stone-100 px-2 py-0.5 rounded-full text-stone-500">{getAppointmentsForDate(hoveredDay).length} 筆</span>
-                    </h4>
-                    <div className="space-y-2 max-h-96 overflow-y-auto no-scrollbar">
-                      {getAppointmentsForDate(hoveredDay).map(a => {
-                        const tr = treatments.find(t => t.id === a.treatmentId);
-                        const th = therapists.find(t => t.id === a.therapistId);
-                        const config = STATUS_CONFIG[a.status || 'scheduled'];
+            {/* Group Detail Modal */}
+            <Modal 
+              isOpen={!!showGroupDetail} 
+              onClose={() => setShowGroupDetail(null)} 
+              title="團體治療管理"
+              maxWidth="max-w-2xl"
+            >
+              {showGroupDetail && (
+                <div className="space-y-6">
+                  <div className="bg-stone-50 p-5 rounded-[2rem] border border-stone-100 flex justify-between items-center">
+                    <div>
+                      <h4 className="text-lg font-black text-stone-800">
+                        {treatments.find(t => t.id === showGroupDetail.treatmentId)?.name}
+                      </h4>
+                      <p className="text-xs font-bold text-stone-400 mt-1">
+                        {showGroupDetail.date} {showGroupDetail.time} · {showGroupDetail.treatmentRoom} · {therapists.find(t => t.id === showGroupDetail.therapistId)?.name}
+                      </p>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button 
+                        variant="secondary" 
+                        size="sm"
+                        onClick={() => {
+                          setGroupCopyModal(showGroupDetail);
+                          setGroupCopyForm({ startDate: showGroupDetail.date, time: showGroupDetail.time, weeks: 1 });
+                          setShowGroupDetail(null);
+                        }}
+                      >
+                        <Copy size={14} className="mr-1" /> 複製團體
+                      </Button>
+                      <Button 
+                        variant="danger" 
+                        size="sm"
+                        onClick={() => {
+                          if (confirm('確定要刪除整個團體預約嗎？')) {
+                            showGroupDetail.ids.forEach(id => onDelete(id));
+                            setShowGroupDetail(null);
+                          }
+                        }}
+                      >
+                        <Trash2 size={14} className="mr-1" /> 刪除團體
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center px-2">
+                      <h5 className="text-[10px] font-black text-stone-400 uppercase tracking-widest">成員名單 ({showGroupDetail.patients.length})</h5>
+                      <Button 
+                        variant="ghost" 
+                        size="xs"
+                        onClick={() => {
+                          showGroupDetail.ids.forEach(id => onUpdate(id, { status: 'completed' }));
+                          setShowGroupDetail(null);
+                        }}
+                      >
+                        全部報到
+                      </Button>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {showGroupDetail.patients.map(p => {
+                        const config = STATUS_CONFIG[p.status || 'scheduled'];
                         return (
-                          <div key={a.id} className={`p-2 rounded-xl border ${config.bg} ${config.border} flex justify-between items-center`}>
-                            <div>
-                              <p className="text-[10px] font-black text-stone-800">{a.time} {a.patientName}</p>
-                              <p className="text-[9px] font-bold text-stone-400">{tr?.name} · {th?.name}</p>
+                          <div key={p.id} className="bg-white p-3 rounded-2xl border border-stone-100 flex justify-between items-center group">
+                            <span className="text-sm font-black text-stone-800">{p.name}</span>
+                            <div className="flex items-center gap-2">
+                              <select 
+                                className={`text-[10px] font-black rounded-lg px-2 py-1 border-none outline-none ${config.bg} ${config.text}`}
+                                value={p.status || 'scheduled'}
+                                onChange={(e) => onUpdate(p.id, { status: e.target.value })}
+                              >
+                                {Object.entries(STATUS_CONFIG).map(([val, cfg]) => (
+                                  <option key={val} value={val}>{cfg.label}</option>
+                                ))}
+                              </select>
+                              <button 
+                                onClick={() => {
+                                  const apt = appointments.find(a => a.id === p.id);
+                                  setShowAptDetail(apt);
+                                  setShowGroupDetail(null);
+                                }}
+                                className="p-1.5 hover:bg-stone-50 rounded-lg text-stone-300 opacity-0 group-hover:opacity-100 transition-all"
+                              >
+                                <Edit3 size={14} />
+                              </button>
                             </div>
-                            <span className={`text-[9px] font-black ${config.text}`}>{config.label}</span>
                           </div>
                         );
                       })}
                     </div>
                   </div>
-                )}
-              </div>
-            )}
-
-            {/* Day Detail Modal */}
+                </div>
+              )}
+            </Modal>
             <Modal 
               isOpen={!!showDayDetail} 
               onClose={() => setShowDayDetail(null)} 
