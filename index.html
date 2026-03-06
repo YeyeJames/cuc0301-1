@@ -2896,9 +2896,9 @@
                 </button>
               </div>
 
-              <div className="space-y-4 print:space-y-0 print:block flex flex-col items-start">
+              <div className="space-y-4 print:columns-2 print:gap-8 print:space-y-0 flex flex-col items-start print:block">
                 {stats.therapists.map((t, index) => (
-                  <div key={t.id} className={`bg-white rounded-[2.5rem] border border-stone-100 shadow-sm overflow-hidden print:rounded-none print:border-b-2 print:border-stone-800 print:shadow-none print:mb-8 print:pb-8 print:break-inside-avoid ${index % 2 === 1 ? 'print:break-after-page' : ''} w-fit`}>
+                  <div key={t.id} className={`bg-white rounded-[2.5rem] border border-stone-100 shadow-sm overflow-hidden print:rounded-none print:border-b print:border-stone-300 print:shadow-none print:mb-6 print:pb-6 print:break-inside-avoid ${index % 4 === 3 ? 'print:break-after-page' : ''} w-fit print:w-full`}>
                     <div className="p-6 bg-stone-50/50 flex items-center justify-between border-b border-stone-100 print:bg-transparent print:p-0 print:pb-4">
                       <div className="flex items-center gap-4">
                         <div className="w-12 h-12 rounded-2xl bg-brand-orange text-white flex items-center justify-center font-black text-lg shadow-lg shadow-brand-orange/20">
@@ -2918,18 +2918,18 @@
                       <table className="w-full text-left border-collapse">
                         <thead>
                           <tr className="text-[10px] font-black text-stone-400 uppercase tracking-widest print:text-stone-800">
-                            <th className="pb-2 pl-2 pr-12">日期</th>
-                            <th className="pb-2 pr-12">個案姓名</th>
-                            <th className="pb-2 pr-12">治療項目</th>
+                            <th className="pb-2 pl-2 pr-12 print:pr-4">日期</th>
+                            <th className="pb-2 pr-12 print:pr-4">個案姓名</th>
+                            <th className="pb-2 pr-12 print:pr-4">治療項目</th>
                             <th className="pb-2 text-right pr-2">薪資額</th>
                           </tr>
                         </thead>
                         <tbody className="text-sm font-bold text-stone-600 print:text-stone-900">
                           {t.details.map((d, i) => (
                             <tr key={i} className="border-t border-stone-50 print:border-stone-200">
-                              <td className="py-1.5 pl-2 pr-12 text-stone-400 print:text-stone-600">{d.date}</td>
-                              <td className="py-1.5 pr-12 font-black text-stone-800">{d.patient}</td>
-                              <td className="py-1.5 pr-12">{d.treatment}</td>
+                              <td className="py-1.5 pl-2 pr-12 print:pr-4 text-stone-400 print:text-stone-600">{d.date}</td>
+                              <td className="py-1.5 pr-12 print:pr-4 font-black text-stone-800">{d.patient}</td>
+                              <td className="py-1.5 pr-12 print:pr-4">{d.treatment}</td>
                               <td className="py-1.5 text-right pr-2 text-brand-orange font-black">${d.fee.toLocaleString()}</td>
                             </tr>
                           ))}
