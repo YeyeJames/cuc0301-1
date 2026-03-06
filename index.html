@@ -91,6 +91,14 @@
       const CATEGORIES = ['心理', '職能', 'rTMS'];
       const KEYS = { THERAPISTS: 'jiale_therapists', TREATMENTS: 'jiale_treatments', APPOINTMENTS: 'jiale_appointments', SESSION: 'jiale_session', ACCOUNTS: 'jiale_accounts' };
 
+      const STATUS_CONFIG = {
+        'scheduled': { label: '預約中', color: 'stone', bg: 'bg-white', border: 'border-stone-100', text: 'text-stone-800', dot: 'bg-stone-400' },
+        'completed': { label: '已報到', color: 'blue', bg: 'bg-blue-50', border: 'border-blue-100', text: 'text-blue-600', dot: 'bg-blue-500' },
+        'noshow': { label: '未到', color: 'red', bg: 'bg-red-50', border: 'border-red-100', text: 'text-red-600', dot: 'bg-red-500' },
+        'cancelled': { label: '取消', color: 'stone', bg: 'bg-stone-100', border: 'border-stone-200', text: 'text-stone-400', dot: 'bg-stone-400', strikethrough: true },
+        'leave': { label: '請假', color: 'stone', bg: 'bg-stone-100', border: 'border-stone-200', text: 'text-stone-400', dot: 'bg-stone-400', strikethrough: true }
+      };
+
       const DataService = {
         get: (key, def) => {
             try {
@@ -275,14 +283,6 @@
             setForm(prev => ({ ...prev, patientName: name }));
           }
           setShowPatientSuggestions(false);
-        };
-
-        const STATUS_CONFIG = {
-          'scheduled': { label: '預約中', color: 'stone', bg: 'bg-white', border: 'border-stone-100', text: 'text-stone-800', dot: 'bg-stone-400' },
-          'completed': { label: '已報到', color: 'blue', bg: 'bg-blue-50', border: 'border-blue-100', text: 'text-blue-600', dot: 'bg-blue-500' },
-          'noshow': { label: '未到', color: 'red', bg: 'bg-red-50', border: 'border-red-100', text: 'text-red-600', dot: 'bg-red-500' },
-          'cancelled': { label: '取消', color: 'stone', bg: 'bg-stone-100', border: 'border-stone-200', text: 'text-stone-400', dot: 'bg-stone-400', strikethrough: true },
-          'leave': { label: '請假', color: 'stone', bg: 'bg-stone-100', border: 'border-stone-200', text: 'text-stone-400', dot: 'bg-stone-400', strikethrough: true }
         };
 
         const visiblePeriodSummary = useMemo(() => {
@@ -1644,7 +1644,16 @@
                     if (!originalApt) return;
 
                     newApts.push({
-                      ...originalApt,
+                      // Explicitly copy all relevant fields to avoid any data loss
+                      patientName: originalApt.patientName,
+                      therapistId: originalApt.therapistId,
+                      treatmentId: originalApt.treatmentId,
+                      treatmentRoom: originalApt.treatmentRoom,
+                      category: originalApt.category,
+                      notes: originalApt.notes || '',
+                      patientPrice: originalApt.patientPrice || 0,
+                      therapistFee: originalApt.therapistFee || 0,
+                      // New fields for the copy
                       id: `apt_${Date.now()}_${i}_${Math.random()}`,
                       date: dateStr,
                       time: groupCopyForm.time,
