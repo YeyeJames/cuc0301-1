@@ -2896,7 +2896,7 @@
                 </button>
               </div>
 
-              <div className="space-y-4 print:space-y-0 print:block">
+              <div className="space-y-4 print:space-y-0 print:block flex flex-col items-start">
                 {stats.therapists.map((t, index) => (
                   <div key={t.id} className={`bg-white rounded-[2.5rem] border border-stone-100 shadow-sm overflow-hidden print:rounded-none print:border-b-2 print:border-stone-800 print:shadow-none print:mb-8 print:pb-8 print:break-inside-avoid ${index % 2 === 1 ? 'print:break-after-page' : ''} w-fit min-w-[500px]`}>
                     <div className="p-6 bg-stone-50/50 flex items-center justify-between border-b border-stone-100 print:bg-transparent print:p-0 print:pb-4">
