@@ -1200,7 +1200,7 @@
                           </span>
                         </div>
                         
-                        <div className={`flex flex-col gap-0.5 flex-1 ${isHovered ? 'overflow-y-auto max-h-[300px] no-scrollbar' : 'overflow-hidden'}`}>
+                        <div className={`flex flex-col gap-0.5 flex-1 ${isHovered ? 'overflow-y-auto max-h-[400px] pr-1' : 'overflow-hidden'}`}>
                           {visibleApts.map((a, i) => {
                             const therapist = therapists.find(t => t.id === a.therapistId);
                             const treatment = treatments.find(t => t.id === a.treatmentId);
@@ -1251,9 +1251,15 @@
                             );
                           })}
                           {!isHovered && hasMore && (
-                            <div className="text-[9px] font-black text-stone-400 text-center mt-auto py-0.5 bg-stone-50 rounded">
+                            <button 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setShowDayDetail(ds);
+                              }}
+                              className="text-[9px] font-black text-brand-orange text-center mt-auto py-0.5 bg-brand-orange/5 hover:bg-brand-orange/10 rounded transition-colors"
+                            >
                               還有 {grouped.length - maxVisible} 筆...
-                            </div>
+                            </button>
                           )}
                         </div>
                       </div>
