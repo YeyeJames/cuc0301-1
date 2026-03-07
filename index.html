@@ -290,8 +290,8 @@
 
         const visiblePeriodSummary = useMemo(() => {
           let periodApts = [];
-          // Use filteredAppointments so stats respect therapist/category filters
-          const sourceApts = filteredAppointments; 
+          // Use appointments for admin to see total, or filtered for therapist
+          const sourceApts = user?.role === 'therapist' ? filteredAppointments : appointments; 
           
           if (viewMode === 'day' || viewMode === 'day-table') {
             periodApts = sourceApts.filter(a => a.date === selectedDate);
@@ -311,13 +311,20 @@
           
           const summary = {
             total: periodApts.length,
-            revenue: periodApts.reduce((sum, a) => sum + (Number(a.paidAmount) || 0), 0)
+            revenue: periodApts.reduce((sum, a) => {
+              if (a.status === 'completed') {
+                // Prioritize paidAmount, fallback to patientPrice
+                const amount = Number(a.paidAmount) || Number(a.patientPrice) || 0;
+                return sum + amount;
+              }
+              return sum;
+            }, 0)
           };
           Object.keys(STATUS_CONFIG).forEach(status => {
             summary[status] = periodApts.filter(a => (a.status || 'scheduled') === status).length;
           });
           return summary;
-        }, [filteredAppointments, selectedDate, viewMode, currentSelected]);
+        }, [appointments, filteredAppointments, selectedDate, viewMode, currentSelected, user]);
 
         const renderStatusBadge = (status) => {
           const config = STATUS_CONFIG[status] || STATUS_CONFIG['scheduled'];
@@ -825,7 +832,7 @@
             )}
 
             {viewMode === 'day' && (
-              <div className="space-y-1">
+              <div className="max-w-4xl mx-auto w-full space-y-1">
                 {groupedApts.length === 0 ? (
                   <div className="bg-white rounded-[2.5rem] border border-stone-100 shadow-sm p-32 text-center">
                     <Coffee size={48} className="mx-auto text-stone-200 mb-4" />
@@ -2961,7 +2968,7 @@
                 </button>
               </div>
 
-              <div className="space-y-4 print:space-y-0 print:grid print:grid-cols-2 print:gap-x-4 flex flex-col items-start">
+              <div className="space-y-4 print:space-y-0 print:grid print:grid-cols-2 print:gap-x-2 flex flex-col items-start">
                 {stats.therapists.map((t, index) => (
                   <div key={t.id} className={`bg-white rounded-[2.5rem] border border-stone-100 shadow-sm overflow-hidden print:rounded-none print:border-b print:border-stone-300 print:shadow-none print:mb-6 print:pb-6 print:break-inside-avoid w-fit print:w-full`}>
                     <div className="p-6 bg-stone-50/50 flex items-center justify-between border-b border-stone-100 print:bg-transparent print:p-0 print:pb-4">
@@ -2985,8 +2992,8 @@
                           <tr className="text-[10px] font-black text-stone-400 uppercase tracking-widest print:text-stone-800">
                             <th className="pb-2 pl-2 w-[22%] whitespace-nowrap">日期</th>
                             <th className="pb-2 w-[18%] whitespace-nowrap">姓名</th>
-                            <th className="pb-2 w-[45%] whitespace-nowrap">治療項目</th>
-                            <th className="pb-2 text-right pr-2 w-[15%] whitespace-nowrap">金額</th>
+                            <th className="pb-2 w-[48%] whitespace-nowrap">治療項目</th>
+                            <th className="pb-2 text-right pr-2 w-[12%] whitespace-nowrap">金額</th>
                           </tr>
                         </thead>
                         <tbody className="text-sm font-bold text-stone-600 print:text-stone-900">
