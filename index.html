@@ -106,7 +106,8 @@
         get: (key, def) => {
             try {
                 const item = localStorage.getItem(key);
-                return item ? JSON.parse(item) : def;
+                if (!item || item === 'null' || item === 'undefined') return def;
+                return JSON.parse(item);
             } catch (e) { return def; }
         },
         save: (key, val) => localStorage.setItem(key, JSON.stringify(val)),
@@ -142,11 +143,11 @@
         );
       };
 
-      const Modal = ({ isOpen, onClose, title, children }) => {
+      const Modal = ({ isOpen, onClose, title, children, maxWidth = "max-w-lg" }) => {
         if (!isOpen) return null;
         return (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-stone-900/60 backdrop-blur-sm">
-            <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-lg flex flex-col max-h-[90vh] border border-stone-100">
+            <div className={`bg-white rounded-[2rem] shadow-2xl w-full ${maxWidth} flex flex-col max-h-[90vh] border border-stone-100`}>
               <div className="flex items-center justify-between px-8 py-6 border-b border-stone-100">
                 <h3 className="font-black text-xl text-stone-800 tracking-tight">{title}</h3>
                 <button onClick={onClose} className="p-2 hover:bg-stone-50 rounded-full text-stone-300"><X size={24}/></button>
@@ -168,6 +169,7 @@
         const [groupCopyForm, setGroupCopyForm] = useState({ startDate: '', time: '', weeks: 1 });
         const [hoveredDay, setHoveredDay] = useState(null);
         const [contextMenu, setContextMenu] = useState(null);
+        const [showHistory, setShowHistory] = useState(null);
 
         useEffect(() => {
           const handleClick = () => setContextMenu(null);
@@ -196,6 +198,7 @@
           
           if (filters.period && filters.period !== 'all') {
             filtered = filtered.filter(a => {
+              if (!a.time) return false;
               const hour = parseInt(a.time.split(':')[0]);
               if (filters.period === 'morning') return hour < 12;
               if (filters.period === 'afternoon') return hour >= 12 && hour < 18;
@@ -208,13 +211,12 @@
 
         const [viewMode, setViewMode] = useState('month');
         const currentSelected = useMemo(() => new Date(selectedDate), [selectedDate]);
-        const dayApts = useMemo(() => filteredAppointments.filter(a => a.date === selectedDate).sort((a,b) => a.time.localeCompare(b.time)), [filteredAppointments, selectedDate]);
+        const dayApts = useMemo(() => filteredAppointments.filter(a => a.date === selectedDate).sort((a,b) => (a.time || '').localeCompare(b.time || '')), [filteredAppointments, selectedDate]);
         const getAppointmentsForDate = (dateStr) => {
           let apts = filteredAppointments.filter(a => a.date === dateStr);
-          return apts.sort((a,b) => a.time.localeCompare(b.time));
+          return apts.sort((a,b) => (a.time || '').localeCompare(b.time || ''));
         };
         
-        const weekDays = useMemo(() => eachDayOfInterval({ start: startOfWeek(currentSelected), end: endOfWeek(currentSelected) }), [currentSelected]);
         const monthDays = useMemo(() => eachDayOfInterval({ start: startOfWeek(startOfMonth(currentSelected)), end: endOfWeek(endOfMonth(currentSelected)) }), [currentSelected]);
 
         const [isAddOpen, setIsAddOpen] = useState(false);
@@ -305,14 +307,8 @@
           // Use appointments for admin to see total, or filtered for therapist
           const sourceApts = user?.role === 'therapist' ? filteredAppointments : appointments; 
           
-          if (viewMode === 'day' || viewMode === 'day-table') {
+          if (viewMode === 'day') {
             periodApts = sourceApts.filter(a => a.date === selectedDate);
-          } else if (viewMode === 'week') {
-            const start = startOfWeek(currentSelected);
-            const end = endOfWeek(currentSelected);
-            const startStr = format(start, 'yyyy-MM-dd');
-            const endStr = format(end, 'yyyy-MM-dd');
-            periodApts = sourceApts.filter(a => a.date >= startStr && a.date <= endStr);
           } else if (viewMode === 'month') {
             const start = startOfMonth(currentSelected);
             const end = endOfMonth(currentSelected);
@@ -436,20 +432,22 @@
                     <div className="absolute right-0 top-full mt-1 w-20 md:w-24 bg-white border border-stone-100 rounded-lg shadow-xl z-50 overflow-hidden py-1">
                       <button onClick={(e) => { 
                         e.stopPropagation();
+                        const treatment = treatments.find(t => t.id === a.treatmentId);
                         setEditingApt(a); 
                         setForm({ ...a, category: treatment?.category || '心理' }); 
                         setIsAddOpen(true); 
                         setActiveMenuId(null);
-                      }} className="w-full px-2 md:px-3 py-1 md:py-2 text-[8px] md:text-[10px] font-bold text-stone-600 hover:bg-stone-50 flex items-center gap-1 md:gap-2 border-b border-stone-50">
+                      }} className="w-full px-2 md:px-3 py-1 md:py-2 text-[8px] md:text-[10px] font-black text-stone-600 hover:bg-stone-50 flex items-center gap-1 md:gap-2 border-b border-stone-50">
                         <Edit3 size={8} className="md:hidden"/><Edit3 size={10} className="hidden md:block"/> 編輯
                       </button>
                       <button onClick={(e) => { 
                         e.stopPropagation();
+                        const treatment = treatments.find(t => t.id === a.treatmentId);
                         setEditingApt(null); 
                         setForm({ ...a, id: undefined, category: treatment?.category || '心理' }); 
                         setIsAddOpen(true); 
                         setActiveMenuId(null);
-                      }} className="w-full px-2 md:px-3 py-1 md:py-2 text-[8px] md:text-[10px] font-bold text-stone-600 hover:bg-stone-50 flex items-center gap-1 md:gap-2 border-b border-stone-50">
+                      }} className="w-full px-2 md:px-3 py-1 md:py-2 text-[8px] md:text-[10px] font-black text-stone-600 hover:bg-stone-50 flex items-center gap-1 md:gap-2 border-b border-stone-50">
                         <Copy size={8} className="md:hidden"/><Copy size={10} className="hidden md:block"/> 複製
                       </button>
                       <button onClick={(e) => { 
@@ -572,17 +570,13 @@
                         if (viewMode === 'month') {
                           setSelectedDate(format(startOfMonth(addMonths(currentSelected, -1)), 'yyyy-MM-dd'));
                         } else {
-                          setSelectedDate(format(addDays(currentSelected, (viewMode === 'day' || viewMode === 'day-table') ? -1 : -7), 'yyyy-MM-dd'));
+                          setSelectedDate(format(addDays(currentSelected, -1), 'yyyy-MM-dd'));
                         }
                       }} className="p-2 hover:bg-stone-50 rounded-lg border border-stone-100"><ChevronLeft size={16}/></button>
                       <div className="text-center min-w-[120px] font-black relative cursor-pointer">
                         <input type="date" className="absolute inset-0 opacity-0 z-10 cursor-pointer" value={selectedDate} onChange={e => setSelectedDate(e.target.value)} />
                         {viewMode === 'month' ? (
                           <span className={`text-lg tracking-tight text-stone-800`}>{format(currentSelected, 'yyyy年MM月')}</span>
-                        ) : viewMode === 'week' ? (
-                          <span className={`text-lg tracking-tight text-stone-800`}>
-                            {format(startOfWeek(currentSelected), 'MM/dd')} - {format(endOfWeek(currentSelected), 'MM/dd')}
-                          </span>
                         ) : (
                           <>
                             <span className={`text-lg tracking-tight ${getDayTextClass(currentSelected)}`}>{format(currentSelected, 'yyyy/MM/dd')}</span>
@@ -594,7 +588,7 @@
                         if (viewMode === 'month') {
                           setSelectedDate(format(startOfMonth(addMonths(currentSelected, 1)), 'yyyy-MM-dd'));
                         } else {
-                          setSelectedDate(format(addDays(currentSelected, (viewMode === 'day' || viewMode === 'day-table') ? 1 : 7), 'yyyy-MM-dd'));
+                          setSelectedDate(format(addDays(currentSelected, 1), 'yyyy-MM-dd'));
                         }
                       }} className="p-2 hover:bg-stone-50 rounded-lg border border-stone-100"><ChevronRight size={16}/></button>
                     </div>
@@ -651,7 +645,7 @@
                     <div className="flex items-center gap-3 pl-4 border-l border-stone-100 ml-auto lg:ml-0">
                       <div className="flex flex-col items-end">
                         <span className="text-[7px] font-black text-stone-400 uppercase tracking-widest leading-none">
-                          {viewMode === 'month' ? '本月' : viewMode === 'week' ? '本週' : '今日'}總診
+                          {viewMode === 'month' ? '本月' : '今日'}總診
                         </span>
                         <span className="text-[11px] font-black text-stone-800">{visiblePeriodSummary.total}</span>
                       </div>
@@ -673,186 +667,6 @@
             </div>
 
             {/* Content Logic */}
-            {viewMode === 'day-table' && (
-              <div className="bg-white rounded-[2.5rem] border border-stone-100 shadow-sm overflow-hidden flex flex-col">
-                {/* Time Grid (Row-based for flexibility) */}
-                <div className="flex flex-col overflow-hidden">
-                  {/* Header Row (Rooms) */}
-                  <div className="flex border-b border-stone-100 bg-stone-50/50 sticky top-0 z-20">
-                    <div className="w-8 md:w-16 shrink-0 border-r border-stone-100"></div>
-                    <div className="flex-1 grid" style={{ gridTemplateColumns: `repeat(${TREATMENT_ROOMS.length}, minmax(0, 1fr))` }}>
-                      {TREATMENT_ROOMS.map(room => (
-                        <div key={room} className="px-1 md:px-2 py-1.5 md:py-3 text-center border-r border-stone-100 last:border-none">
-                          <span className="text-[7px] md:text-[10px] font-black text-stone-400 uppercase tracking-widest">{room}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Time Rows */}
-                  <div className="flex flex-col overflow-y-auto max-h-[600px]">
-                    {Array.from({length: 28}, (_, i) => {
-                      const hour = Math.floor(i / 2) + 8;
-                      const minute = (i % 2) * 30;
-                      const timeStr = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
-                      const isHour = minute === 0;
-                      const isHovered = hoveredHour === hour;
-
-                      return (
-                        <div key={timeStr} className={`flex border-b border-stone-100 transition-colors ${isHovered ? 'bg-brand-orange/5' : ''}`}>
-                          {/* Time Label */}
-                          <div className={`w-8 md:w-16 shrink-0 border-r border-stone-100 flex items-start justify-end pr-1 md:pr-2 pt-1 md:pt-2 bg-stone-50/30 ${isHour ? 'font-black' : 'opacity-50'}`}>
-                            <span className={`text-[6px] md:text-[10px] transition-all duration-300 ${isHovered ? 'text-brand-orange scale-110' : 'text-stone-400'}`}>
-                              {timeStr}
-                            </span>
-                          </div>
-
-                          {/* Room Cells */}
-                          <div className="flex-1 grid" style={{ gridTemplateColumns: `repeat(${TREATMENT_ROOMS.length}, minmax(0, 1fr))` }}>
-                            {TREATMENT_ROOMS.map(room => {
-                              const roomGroups = groupedApts.filter(g => g.treatmentRoom === room && g.time === timeStr);
-                              
-                              return (
-                                <div 
-                                  key={room} 
-                                  className="border-r border-stone-100 last:border-none p-0.5 md:p-1 min-h-[60px] md:min-h-[120px] relative group hover:bg-brand-orange/5 transition-colors"
-                                  onClick={(e) => {
-                                    if (e.target === e.currentTarget && user?.role !== 'therapist') {
-                                      setEditingApt(null);
-                                      setForm({
-                                        patientName: '',
-                                        time: timeStr,
-                                        date: selectedDate,
-                                        therapistId: '',
-                                        treatmentId: '',
-                                        notes: '',
-                                        treatmentRoom: room,
-                                        category: '心理'
-                                      });
-                                      setIsAddOpen(true);
-                                    }
-                                  }}
-                                >
-                                  {/* Add Button Placeholder */}
-                                  {user?.role !== 'therapist' && roomGroups.length === 0 && (
-                                    <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-                                      <Plus className="text-brand-orange/30" size={20} />
-                                    </div>
-                                  )}
-
-                                  {/* Appointment Cards */}
-                                  <div className="flex flex-col gap-2">
-                                    {roomGroups.map(group => {
-                                      const treatment = treatments.find(t => t.id === group.treatmentId);
-                                      const therapist = therapists.find(t => t.id === group.therapistId);
-                                      const isGroup = group.isGroup;
-                                      
-                                      return (
-                                        <div 
-                                          key={group.id}
-                                          onMouseEnter={() => setHoveredHour(hour)}
-                                          onMouseLeave={() => setHoveredHour(null)}
-                                          className={`p-1 md:p-2 rounded-lg md:rounded-xl border text-[6px] md:text-[10px] transition-all duration-300 shadow-sm flex flex-col gap-0.5 md:gap-1 bg-white ${isGroup ? 'border-brand-orange/40 ring-1 md:ring-2 ring-brand-orange/5' : 'border-stone-200'} ${isHovered ? 'border-brand-orange ring-2 md:ring-4 ring-brand-orange/10 shadow-md' : ''}`}
-                                        >
-                                          <div className="flex justify-between items-start">
-                                            <div className="flex flex-col">
-                                              <span className="font-black text-stone-800 leading-tight truncate max-w-[40px] md:max-w-none">{treatment?.name}</span>
-                                              <div className="text-[5px] md:text-[9px] text-stone-400 font-bold flex items-center gap-0.5 md:gap-1 mt-0.5">
-                                                <UsersIcon size={6} className="md:hidden"/>
-                                                <UsersIcon size={8} className="hidden md:block"/>
-                                                <span className="truncate">{therapist?.name}</span>
-                                              </div>
-                                            </div>
-                                            <span className="text-[5px] md:text-[9px] font-bold text-brand-orange bg-brand-orange/10 px-0.5 md:px-1 py-0.25 md:py-0.5 rounded">${treatment?.patientPrice || 0}</span>
-                                          </div>
-                                          
-                                          <div className="mt-0.5 md:mt-1 space-y-0.5 md:space-y-1">
-                                            {group.patients.map(p => {
-                                              const config = STATUS_CONFIG[p.status || 'scheduled'];
-                                              const isSecondary = (p.status === 'leave' || p.status === 'cancelled' || p.status === 'noshow') && group.patients.some(x => x.status !== 'leave' && x.status !== 'cancelled' && x.status !== 'noshow');
-                                              return (
-                                                <div 
-                                                  key={p.id} 
-                                                  onClick={() => setShowAptDetail(p)}
-                                                  className={`group flex flex-col gap-0.25 md:gap-0.5 p-0.5 md:p-1.5 rounded border transition-all cursor-pointer hover:ring-1 hover:ring-brand-orange ${config.bg} ${config.border} ${isSecondary ? 'opacity-40 grayscale scale-[0.98] origin-top' : ''}`}
-                                                >
-                                                  <div className="flex items-center justify-between gap-0.5">
-                                                    <span className={`font-bold truncate ${config.text}`}>{p.patientName}</span>
-                                                    {renderSmallStatusActions(p)}
-                                                  </div>
-                                                  {group.patients.length > 1 && (p.treatmentId !== group.treatmentId || p.therapistId !== group.therapistId) && (
-                                                    <div className="text-[5px] md:text-[8px] font-bold text-stone-400 flex flex-col gap-0.25 md:gap-0.5 border-t border-stone-100 mt-0.25 md:mt-0.5 pt-0.25 md:pt-0.5">
-                                                      {p.treatmentId !== group.treatmentId && <span className="truncate">{treatments.find(t => t.id === p.treatmentId)?.name}</span>}
-                                                      {p.therapistId !== group.therapistId && <span className="truncate flex items-center gap-0.25 md:gap-0.5">
-                                                        <UsersIcon size={6} className="md:hidden"/>
-                                                        <UsersIcon size={8} className="hidden md:block"/>
-                                                        {therapists.find(t => t.id === p.therapistId)?.name}
-                                                      </span>}
-                                                    </div>
-                                                  )}
-                                                  {p.notes && (
-                                                    <div className={`text-[5px] md:text-[8px] italic opacity-70 truncate ${config.text}`} title={p.notes}>
-                                                      {p.notes}
-                                                    </div>
-                                                  )}
-                                                </div>
-                                              );
-                                            })}
-                                          </div>
-                                          {isGroup && user?.role !== 'therapist' && (
-                                            <div className="mt-1 md:mt-2 flex gap-0.5 md:gap-1">
-                                              <button onClick={(e) => {
-                                                e.stopPropagation();
-                                                setGroupCopyModal(group);
-                                                setGroupCopyForm({
-                                                  startDate: format(addDays(new Date(selectedDate), 7), 'yyyy-MM-dd'),
-                                                  time: group.time,
-                                                  weeks: 1
-                                                });
-                                              }} className="flex-1 py-0.5 md:py-1 rounded bg-stone-100 text-[5px] md:text-[8px] font-black text-stone-600 hover:bg-stone-200 flex items-center justify-center gap-0.5 md:gap-1">
-                                                <Copy size={6} className="md:hidden"/>
-                                                <Copy size={8} className="hidden md:block"/>
-                                                複製
-                                              </button>
-                                              <button onClick={(e) => {
-                                                e.stopPropagation();
-                                                setEditingApt(null);
-                                                setForm({ 
-                                                  patientName: '', 
-                                                  time: group.time, 
-                                                  date: selectedDate,
-                                                  therapistId: group.therapistId, 
-                                                  treatmentId: group.treatmentId, 
-                                                  notes: '', 
-                                                  treatmentRoom: group.treatmentRoom,
-                                                  isGroup: true,
-                                                  category: treatment?.category || '心理'
-                                                });
-                                                setIsAddingToGroup(true);
-                                                setIsAddOpen(true);
-                                              }} className="flex-1 py-0.5 md:py-1 rounded bg-brand-orange text-[5px] md:text-[8px] font-black text-white hover:bg-stone-900 flex items-center justify-center gap-0.5 md:gap-1">
-                                                <UserPlus size={6} className="md:hidden"/>
-                                                <UserPlus size={8} className="hidden md:block"/>
-                                                新增
-                                              </button>
-                                            </div>
-                                          )}
-                                        </div>
-                                      );
-                                    })}
-                                  </div>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
-            )}
-
             {viewMode === 'day' && (
               <div className="max-w-4xl mx-auto w-full space-y-1">
                 {groupedApts.length === 0 ? (
@@ -1052,104 +866,6 @@
               </div>
             )}
 
-            {viewMode === 'week' && (
-              <div className="bg-white rounded-[2.5rem] border border-stone-100 shadow-sm overflow-hidden flex flex-col">
-                {/* Header Row (Days) */}
-                <div className="flex border-b border-stone-100 bg-stone-50/50 sticky top-0 z-20">
-                  <div className="w-8 md:w-16 shrink-0 border-r border-stone-100"></div>
-                  <div className="flex-1 grid grid-cols-7">
-                    {weekDays.map(day => (
-                      <div key={day.toISOString()} className={`text-center py-1 md:py-3 border-r border-stone-100 last:border-none flex flex-col items-center justify-center ${getDayTextClass(day)}`}>
-                        <p className="text-[6px] md:text-[10px] font-black uppercase tracking-widest leading-none md:leading-normal">{format(day, 'EEE')}</p>
-                        <button onClick={() => {setSelectedDate(format(day, 'yyyy-MM-dd')); setViewMode('day');}} className={`mt-0.5 md:mt-1 text-xs md:text-lg font-black w-4 h-4 md:w-8 md:h-8 flex items-center justify-center rounded-full transition-all hover:scale-110 ${isToday(day) ? 'bg-brand-orange text-white shadow-md' : ''}`}>
-                          {format(day, 'd')}
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Time Rows */}
-                <div className="flex flex-col overflow-y-auto max-h-[600px]">
-                  {Array.from({length: 28}, (_, i) => {
-                    const hour = Math.floor(i / 2) + 8;
-                    const minute = (i % 2) * 30;
-                    const timeStr = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
-                    const isHour = minute === 0;
-                    const isHovered = hoveredHour === hour;
-
-                    return (
-                      <div key={timeStr} className={`flex border-b border-stone-100 transition-colors ${isHovered ? 'bg-brand-orange/5' : ''}`}>
-                        {/* Time Label */}
-                        <div className={`w-8 md:w-16 shrink-0 border-r border-stone-100 flex items-start justify-end pr-1 md:pr-2 pt-1 md:pt-2 bg-stone-50/30 ${isHour ? 'font-black' : 'opacity-50'}`}>
-                          <span className={`text-[6px] md:text-[10px] transition-all duration-300 ${isHovered ? 'text-brand-orange scale-110' : 'text-stone-400'}`}>
-                            {timeStr}
-                          </span>
-                        </div>
-
-                        {/* Day Cells */}
-                        <div className="flex-1 grid grid-cols-7">
-                          {weekDays.map(day => {
-                            const ds = format(day, 'yyyy-MM-dd');
-                            const dayApts = getAppointmentsForDate(ds).filter(a => a.time === timeStr);
-                            
-                            return (
-                              <div 
-                                key={ds} 
-                                className="border-r border-stone-100 last:border-none p-0.5 md:p-1 min-h-[50px] md:min-h-[100px] relative group hover:bg-brand-orange/5 transition-colors"
-                                onClick={(e) => {
-                                  if (e.target === e.currentTarget && user?.role !== 'therapist') {
-                                    setSelectedDate(ds);
-                                    setEditingApt(null);
-                                    setForm({
-                                      patientName: '',
-                                      time: timeStr,
-                                      date: ds,
-                                      therapistId: '',
-                                      treatmentId: '',
-                                      notes: '',
-                                      treatmentRoom: '二診',
-                                      category: '心理'
-                                    });
-                                    setIsAddOpen(true);
-                                  }
-                                }}
-                              >
-                                {dayApts.length > 0 && (
-                                  <div className="flex flex-col gap-0.5 md:gap-1">
-                                    {dayApts.map(p => {
-                                      const config = STATUS_CONFIG[p.status || 'scheduled'];
-                                      return (
-                                        <div 
-                                          key={p.id}
-                                          onClick={() => setShowAptDetail(p)}
-                                          className={`group/apt flex flex-col p-0.25 md:p-1.5 rounded-sm md:rounded border transition-all cursor-pointer hover:ring-1 hover:ring-brand-orange ${config.bg} ${config.border}`}
-                                        >
-                                          <div className="flex items-center justify-between gap-0.25 md:gap-1">
-                                            <span className={`truncate leading-tight font-black text-[5px] md:text-[10px] ${config.text}`}>{p.patientName}</span>
-                                            {renderSmallStatusActions(p)}
-                                          </div>
-                                          <div className="flex flex-col gap-0 overflow-hidden mt-0 md:mt-0.5">
-                                            <span className="text-stone-500 truncate text-[4px] md:text-[9px] leading-none">{treatments.find(t => t.id === p.treatmentId)?.name}</span>
-                                            <span className="text-stone-400 truncate text-[4px] md:text-[8px] leading-none flex items-center gap-0.25 mt-0 md:mt-0.5"><UsersIcon className="w-1.5 h-1.5 md:w-3 md:h-3 shrink-0"/> <span className="truncate">{therapists.find(t => t.id === p.therapistId)?.name}</span></span>
-                                            {p.notes && <span className="text-stone-300 truncate italic text-[4px] md:text-[8px] leading-none mt-0 md:mt-0.5">註：{p.notes}</span>}
-                                          </div>
-                                        </div>
-                                      );
-                                    })}
-                                  </div>
-                                )}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
             {viewMode === 'month' && (
               <div className="bg-white rounded-2xl border border-stone-200 shadow-sm overflow-hidden flex flex-col relative">
                 {/* Days of week header */}
@@ -1202,7 +918,7 @@
                         grouped.push({ ...a, isGroup: false });
                       }
                     });
-                    grouped.sort((a, b) => a.time.localeCompare(b.time));
+                    grouped.sort((a, b) => (a.time || '').localeCompare(b.time || ''));
 
                     const maxVisible = 8;
                     const visibleApts = isHovered ? grouped : grouped.slice(0, maxVisible);
